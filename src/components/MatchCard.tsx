@@ -30,6 +30,25 @@ export function MatchCard({ match }: { match: Match }) {
       <button
         onClick={() => handleSelect(type, value)}
         disabled={isFinished}
+        className={`flex flex-col items-center justify-center px-1 py-2 rounded flex-1 text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+          selected
+            ? "bg-[#FF3C00] text-black"
+            : "bg-[#080808] text-slate-300 hover:bg-[#1a1a1a]"
+        }`}
+      >
+        <span className={`text-[10px] md:text-xs font-normal opacity-70 mb-0.5 line-clamp-1 text-center ${selected ? "text-black" : ""}`}>{label}</span>
+        <span className="text-base">{value.toFixed(2)}</span>
+      </button>
+    );
+  };
+
+  const OddButtonRow = ({ type, value, label }: { type: OddType, value: number | undefined, label: string }) => {
+    if (!value) return null;
+    const selected = isSelected(type);
+    return (
+      <button
+        onClick={() => handleSelect(type, value)}
+        disabled={isFinished}
         className={`flex items-center justify-between px-3 py-2 rounded flex-1 text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
           selected
             ? "bg-[#FF3C00] text-black"
@@ -76,11 +95,11 @@ export function MatchCard({ match }: { match: Match }) {
         </div>
       </div>
 
-      {/* Main Odds (1X2) */}
+      {/* Main Odds (1X2) - Now using Vertical Stacking */}
       <div className="flex gap-2">
-        <OddButton type="home" value={match.odds.home} label="1" />
-        <OddButton type="draw" value={match.odds.draw} label="X" />
-        <OddButton type="away" value={match.odds.away} label="2" />
+        <OddButton type="home" value={match.odds.home} label={match.homeTeam} />
+        <OddButton type="draw" value={match.odds.draw} label="Empate" />
+        <OddButton type="away" value={match.odds.away} label={match.awayTeam} />
       </div>
 
       {/* Expander */}
@@ -101,24 +120,24 @@ export function MatchCard({ match }: { match: Match }) {
             <span className="text-xs text-slate-500 font-medium">Total de Gols (Adicional)</span>
             <div className="flex flex-col gap-2">
               <div className="flex gap-2">
-                <OddButton type="over05" value={match.odds.over05} label="Mais de 0.5" />
-                <OddButton type="under05" value={match.odds.under05} label="Menos de 0.5" />
+                <OddButtonRow type="over05" value={match.odds.over05} label="Mais de 0.5" />
+                <OddButtonRow type="under05" value={match.odds.under05} label="Menos de 0.5" />
               </div>
               <div className="flex gap-2">
-                <OddButton type="over15" value={match.odds.over15} label="Mais de 1.5" />
-                <OddButton type="under15" value={match.odds.under15} label="Menos de 1.5" />
+                <OddButtonRow type="over15" value={match.odds.over15} label="Mais de 1.5" />
+                <OddButtonRow type="under15" value={match.odds.under15} label="Menos de 1.5" />
               </div>
               <div className="flex gap-2">
-                <OddButton type="over25" value={match.odds.over25} label="Mais de 2.5" />
-                <OddButton type="under25" value={match.odds.under25} label="Menos de 2.5" />
+                <OddButtonRow type="over25" value={match.odds.over25} label="Mais de 2.5" />
+                <OddButtonRow type="under25" value={match.odds.under25} label="Menos de 2.5" />
               </div>
               <div className="flex gap-2">
-                <OddButton type="over35" value={match.odds.over35} label="Mais de 3.5" />
-                <OddButton type="under35" value={match.odds.under35} label="Menos de 3.5" />
+                <OddButtonRow type="over35" value={match.odds.over35} label="Mais de 3.5" />
+                <OddButtonRow type="under35" value={match.odds.under35} label="Menos de 3.5" />
               </div>
               <div className="flex gap-2">
-                <OddButton type="over45" value={match.odds.over45} label="Mais de 4.5" />
-                <OddButton type="under45" value={match.odds.under45} label="Menos de 4.5" />
+                <OddButtonRow type="over45" value={match.odds.over45} label="Mais de 4.5" />
+                <OddButtonRow type="under45" value={match.odds.under45} label="Menos de 4.5" />
               </div>
             </div>
           </div>
@@ -127,8 +146,8 @@ export function MatchCard({ match }: { match: Match }) {
           <div className="flex flex-col gap-2 border-t border-[#1a1a1a] pt-2">
             <span className="text-xs text-slate-500 font-medium">Ambas Equipes Marcam</span>
             <div className="flex gap-2">
-              <OddButton type="bttsYes" value={match.odds.bttsYes} label="Sim" />
-              <OddButton type="bttsNo" value={match.odds.bttsNo} label="Não" />
+              <OddButtonRow type="bttsYes" value={match.odds.bttsYes} label="Sim" />
+              <OddButtonRow type="bttsNo" value={match.odds.bttsNo} label="Não" />
             </div>
           </div>
 
@@ -136,9 +155,9 @@ export function MatchCard({ match }: { match: Match }) {
           <div className="flex flex-col gap-2 border-t border-[#1a1a1a] pt-2">
             <span className="text-xs text-slate-500 font-medium">Chance Dupla</span>
             <div className="flex gap-2">
-              <OddButton type="dc1x" value={match.odds.dc1x} label="1X" />
-              <OddButton type="dc12" value={match.odds.dc12} label="12" />
-              <OddButton type="dcx2" value={match.odds.dcx2} label="X2" />
+              <OddButtonRow type="dc1x" value={match.odds.dc1x} label="1X" />
+              <OddButtonRow type="dc12" value={match.odds.dc12} label="12" />
+              <OddButtonRow type="dcx2" value={match.odds.dcx2} label="X2" />
             </div>
           </div>
 
