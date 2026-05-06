@@ -15,16 +15,31 @@ function americanToDecimal(americanStr: string | number | undefined): number {
 export async function GET() {
   try {
     const now = new Date();
+    
+    // Hoje
     const yyyy = now.getFullYear();
     const mm = String(now.getMonth() + 1).padStart(2, '0');
     const dd = String(now.getDate()).padStart(2, '0');
-    const dateStr = `${yyyy}${mm}${dd}`;
+    const todayStr = `${yyyy}${mm}${dd}`;
+
+    // Amanhã
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tm_yyyy = tomorrow.getFullYear();
+    const tm_mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
+    const tm_dd = String(tomorrow.getDate()).padStart(2, '0');
+    const tomorrowStr = `${tm_yyyy}${tm_mm}${tm_dd}`;
+
+    const dateRange = `${todayStr}-${tomorrowStr}`;
 
     const urls = [
-      `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=${dateStr}`,
-      `https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard?dates=${dateStr}`,
-      `https://site.api.espn.com/apis/site/v2/sports/soccer/bra.1/scoreboard?dates=${dateStr}`,
-      `https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/scoreboard?dates=${dateStr}`,
+      `https://site.api.espn.com/apis/site/v2/sports/soccer/bra.1/scoreboard?dates=${dateRange}`,
+      `https://site.api.espn.com/apis/site/v2/sports/soccer/bra.copa_do_brasil/scoreboard?dates=${dateRange}`,
+      `https://site.api.espn.com/apis/site/v2/sports/soccer/conmebol.libertadores/scoreboard?dates=${dateRange}`,
+      `https://site.api.espn.com/apis/site/v2/sports/soccer/conmebol.sudamericana/scoreboard?dates=${dateRange}`,
+      `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=${dateRange}`,
+      `https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard?dates=${dateRange}`,
+      `https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/scoreboard?dates=${dateRange}`,
     ];
 
     const allMatches = [];
@@ -34,16 +49,32 @@ export async function GET() {
         const res = await fetch(url, { next: { revalidate: 60 } });
         const data = await res.json();
         
-        const leagueName = data.leagues?.[0]?.abbreviation || "Liga Desconhecida";
+        const leagueName = data.leagues?.[0]?.abbreviation || data.leagues?.[0]?.name || "Liga";
 
         if (data.events) {
           for (const event of data.events) {
             const id = event.id;
-            const time = new Date(event.date).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+            const matchDate = new Date(event.date);
+            
+            // Check if match started more than 4 hours ago (approx 2h after it finished)
+            const hoursSinceStart = (now.getTime() - matchDate.getTime()) / (1000 * 60 * 60);
+            const isFinished = event.status.type.completed;
+            
+            // "quero que dps de 2h do jogos ele saia"
+            if (isFinished && hoursSinceStart > 4) {
+              continue; // Skip this match
+            }
+
+            // Exibir data se for amanhã
+            const isTomorrow = matchDate.getDate() !== now.getDate();
+            const timeStr = matchDate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+            const displayTime = isTomorrow ? `Amanhã ${timeStr}` : timeStr;
             
             const homeComp = event.competitions[0].competitors.find((c: any) => c.homeAway === "home");
             const awayComp = event.competitions[0].competitors.find((c: any) => c.homeAway === "away");
             
+            if (!homeComp || !awayComp) continue;
+
             const homeTeam = homeComp.team.shortDisplayName || homeComp.team.displayName;
             const awayTeam = awayComp.team.shortDisplayName || awayComp.team.displayName;
             
@@ -84,14 +115,13 @@ export async function GET() {
             const dcx2 = Number((1 / ((1/awayOdd) + (1/drawOdd))).toFixed(2));
             const dc12 = Number((1 / ((1/homeOdd) + (1/awayOdd))).toFixed(2));
 
-            const isFinished = event.status.type.completed;
             const homeScore = parseInt(homeComp.score || "0");
             const awayScore = parseInt(awayComp.score || "0");
 
             allMatches.push({
               id,
               league: leagueName,
-              time: isFinished ? "FINALIZADO" : time,
+              time: isFinished ? "FINALIZADO" : displayTime,
               homeTeam,
               awayTeam,
               homeLogo,
