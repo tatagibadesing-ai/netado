@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Wallet, Trophy, History } from "lucide-react";
+import { Wallet } from "lucide-react";
 import { useBet } from "../context/BetContext";
 
 interface NavbarProps {
@@ -14,10 +14,10 @@ export function Navbar({ activeTab, setActiveTab }: NavbarProps) {
 
   return (
     <header className="bg-[#FF3C00] sticky top-0 z-50">
-      <div className="max-w-[1400px] mx-auto px-4 lg:px-8 py-3 md:py-0 md:h-16 flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-0">
+      <div className="w-full mx-auto px-4 lg:px-8 pt-3 pb-0 md:py-0 md:h-16 flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-0">
         
         {/* Top Row on Mobile: Logo & Balance */}
-        <div className="flex items-center justify-between w-full md:w-auto">
+        <div className="flex items-center justify-between w-full md:w-auto md:h-full pb-1 md:pb-0">
           {/* Logo */}
           <div className="flex items-center gap-2 w-[120px] md:w-[200px]">
             <img 
@@ -28,9 +28,9 @@ export function Navbar({ activeTab, setActiveTab }: NavbarProps) {
           </div>
 
           {/* Balance (Mobile only - Desktop balance is below) */}
-          <div className="md:hidden flex items-center gap-2 w-[120px] justify-end">
+          <div className="md:hidden flex items-center gap-2 w-[140px] justify-end">
             <div className="flex flex-col items-end">
-              <span className="font-bold text-white flex items-center gap-1.5 text-sm">
+              <span className="font-black text-white flex items-center gap-1 text-sm">
                 R$ {balance.toFixed(2)}
               </span>
             </div>
@@ -41,40 +41,36 @@ export function Navbar({ activeTab, setActiveTab }: NavbarProps) {
         </div>
 
         {/* Center Tabs (Second row on mobile) */}
-        <div className="flex items-center gap-4 md:gap-8 justify-start md:justify-center flex-1 overflow-x-auto no-scrollbar pb-1 md:pb-0">
+        <div className="flex items-center gap-6 md:gap-8 justify-start md:justify-center flex-1 overflow-x-auto no-scrollbar md:h-full">
           <button
             onClick={() => setActiveTab("apostas")}
-            className={`flex items-center gap-1.5 md:gap-2 transition-colors whitespace-nowrap text-sm md:text-base ${
+            className={`flex items-center md:h-full border-b-[3px] pb-2 md:pb-0 pt-1 md:pt-0 transition-all whitespace-nowrap text-xs md:text-sm font-bold uppercase tracking-wider ${
               activeTab === "apostas"
-                ? "text-white font-bold"
-                : "text-white/70 hover:text-white"
+                ? "border-white text-white"
+                : "border-transparent text-white/90 hover:text-white hover:border-white/60"
             }`}
           >
-            <Trophy className="w-4 h-4 md:w-5 md:h-5" />
-            <span>Apostas</span>
-            <span className="hidden sm:inline"> Esportivas</span>
+            Apostas Esportivas
           </button>
           <button
             onClick={() => setActiveTab("historico")}
-            className={`flex items-center gap-1.5 md:gap-2 transition-colors whitespace-nowrap text-sm md:text-base ${
+            className={`flex items-center md:h-full border-b-[3px] pb-2 md:pb-0 pt-1 md:pt-0 transition-all whitespace-nowrap text-xs md:text-sm font-bold uppercase tracking-wider ${
               activeTab === "historico"
-                ? "text-white font-bold"
-                : "text-white/70 hover:text-white"
+                ? "border-white text-white"
+                : "border-transparent text-white/90 hover:text-white hover:border-white/60"
             }`}
           >
-            <History className="w-4 h-4 md:w-5 md:h-5" />
-            <span>Histórico</span>
-            <span className="hidden sm:inline"> (Minhas Apostas)</span>
+            Histórico
           </button>
         </div>
 
         {/* Balance (Desktop only) */}
-        <div className="hidden md:flex items-center gap-4 w-[200px] justify-end">
+        <div className="hidden md:flex items-center gap-4 w-[200px] justify-end h-full">
           <div className="flex flex-col items-end">
-            <span className="text-xs text-white/80 font-medium uppercase tracking-wider">
+            <span className="text-xs text-white/90 font-bold uppercase tracking-wider">
               Saldo
             </span>
-            <span className="font-bold text-white flex items-center gap-1.5 text-base">
+            <span className="font-black text-white flex items-center gap-1 text-lg">
               R$ {balance.toFixed(2)}
             </span>
           </div>
