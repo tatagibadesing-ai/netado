@@ -77,13 +77,13 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   return (
     <div className="min-h-screen bg-[#0A0A0A] flex">
 
-      {/* ── LEFT: Form Panel ─────────────────────────────────────── */}
-      <div className="flex flex-col w-full lg:w-[480px] shrink-0 px-8 md:px-12 py-10 justify-between relative z-10">
+      {/* ── LEFT: Form Panel ─────────────────────────────── */}
+      <div className="flex flex-col w-full lg:w-1/2 shrink-0 px-10 md:px-16 py-10 justify-between">
 
         {/* Logo */}
         <div>
-          <div className="inline-flex bg-[#FF3C00] px-4 py-2 rounded-lg">
-            <img src="/netadologocompleta.webp" alt="Netano" className="h-6 w-auto object-contain" />
+          <div className="w-12 h-12 bg-[#FF3C00] rounded-xl flex items-center justify-center">
+            <img src="/netadologo.webp" alt="Netano" className="w-9 h-9 object-contain" />
           </div>
         </div>
 
@@ -95,15 +95,15 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           className="flex flex-col gap-6"
         >
           <div>
-            <h1 className="text-3xl font-black text-white mb-2">Entrar</h1>
-            <p className="text-slate-500 text-sm leading-relaxed">
+            <h1 className="text-4xl font-black text-white mb-2">Entrar</h1>
+            <p className="text-slate-500 text-sm font-black leading-relaxed">
               Acesse sua conta e aposte nos maiores eventos esportivos do mundo.
             </p>
           </div>
 
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              <label className="text-xs font-black text-slate-400 uppercase tracking-wider">
                 Nome de usuário
               </label>
               <input
@@ -111,7 +111,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="ex: joao123"
-                className="w-full bg-[#161616] text-white placeholder-slate-600 rounded-lg px-4 py-3.5 text-sm border border-white/5 focus:outline-none focus:border-[#FF3C00] transition-all"
+                className="w-full bg-[#161616] text-white font-bold placeholder-slate-600 rounded-lg px-4 py-3.5 text-sm border border-white/5 focus:outline-none focus:border-[#FF3C00] transition-all"
                 autoFocus
                 disabled={isLoading}
               />
@@ -121,7 +121,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="text-red-400 text-xs"
+                className="text-red-400 text-xs font-black"
               >
                 {error}
               </motion.p>
@@ -137,21 +137,20 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             </motion.button>
           </form>
 
-          <p className="text-slate-600 text-xs text-center">
+          <p className="text-slate-600 text-xs font-black">
             Novo aqui? Sua conta é criada automaticamente ao entrar pela primeira vez com R$ 1.000 de saldo.
           </p>
         </motion.div>
 
         {/* Footer */}
-        <p className="text-slate-700 text-xs">
+        <p className="text-slate-700 text-xs font-black">
           © 2025 Netano · Apostas Esportivas
         </p>
       </div>
 
-      {/* ── RIGHT: Hero Image Panel ──────────────────────────────── */}
-      <div className="hidden lg:flex flex-1 relative overflow-hidden rounded-l-3xl">
-        
-        {/* Slides */}
+      {/* ── RIGHT: Hero Image Panel (exact 50%) ──────────── */}
+      <div className="hidden lg:block w-1/2 relative overflow-hidden">
+
         <AnimatePresence mode="wait">
           <motion.div
             key={currentSlide}
@@ -166,9 +165,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               alt="Netano Hero"
               className="w-full h-full object-cover"
             />
-            {/* Gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#0A0A0A] via-transparent to-transparent" style={{ width: "35%" }} />
           </motion.div>
         </AnimatePresence>
 
@@ -182,10 +178,10 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.5 }}
             >
-              <h2 className="text-3xl font-black text-white mb-2">
+              <h2 className="text-3xl font-black text-white mb-2 drop-shadow-lg">
                 {SLIDES[currentSlide].title}
               </h2>
-              <p className="text-slate-400 text-sm max-w-sm">
+              <p className="text-white/80 text-sm font-black max-w-sm drop-shadow-lg">
                 {SLIDES[currentSlide].subtitle}
               </p>
             </motion.div>
@@ -198,16 +194,16 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 key={i}
                 onClick={() => setCurrentSlide(i)}
                 className={`h-1 rounded-full transition-all duration-300 ${
-                  i === currentSlide ? "w-6 bg-[#FF3C00]" : "w-2 bg-white/30"
+                  i === currentSlide ? "w-6 bg-[#FF3C00]" : "w-2 bg-white/40"
                 }`}
               />
             ))}
           </div>
         </div>
 
-        {/* Top-right logo badge */}
-        <div className="absolute top-8 right-8 z-10 bg-black/40 backdrop-blur-sm px-3 py-2 rounded-lg">
-          <img src="/netadologocompleta.webp" alt="Netano" className="h-5 w-auto object-contain" />
+        {/* Top-right favicon badge */}
+        <div className="absolute top-8 right-8 z-10 bg-[#FF3C00] w-10 h-10 rounded-xl flex items-center justify-center">
+          <img src="/netadologo.webp" alt="Netano" className="w-7 h-7 object-contain" />
         </div>
       </div>
 
