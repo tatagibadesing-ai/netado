@@ -13,7 +13,7 @@ export function Navbar({ activeTab, setActiveTab }: NavbarProps) {
   const { balance } = useBet();
 
   return (
-    <header className="bg-[#121212] sticky top-0 z-50">
+    <header className="bg-[#FF3C00] sticky top-0 z-50">
       <div className="max-w-[1400px] mx-auto px-4 lg:px-8 py-3 md:py-0 md:h-16 flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-0">
         
         {/* Top Row on Mobile: Logo & Balance */}
@@ -23,19 +23,19 @@ export function Navbar({ activeTab, setActiveTab }: NavbarProps) {
             <img 
               src="/netadologocompleta.webp" 
               alt="Netano" 
-              className="h-7 md:h-9 w-auto object-contain cursor-pointer" 
+              className="h-5 md:h-7 w-auto object-contain cursor-pointer" 
             />
           </div>
 
           {/* Balance (Mobile only - Desktop balance is below) */}
           <div className="md:hidden flex items-center gap-2 w-[120px] justify-end">
             <div className="flex flex-col items-end">
-              <span className="font-bold text-[#FF3C00] flex items-center gap-1.5 text-sm">
+              <span className="font-bold text-white flex items-center gap-1.5 text-sm">
                 R$ {balance.toFixed(2)}
               </span>
             </div>
-            <div className="w-8 h-8 bg-[#080808] rounded-full flex items-center justify-center shrink-0">
-              <Wallet className="w-4 h-4 text-[#FF3C00]" />
+            <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center shrink-0">
+              <Wallet className="w-4 h-4 text-white" />
             </div>
           </div>
         </div>
@@ -46,8 +46,8 @@ export function Navbar({ activeTab, setActiveTab }: NavbarProps) {
             onClick={() => setActiveTab("apostas")}
             className={`flex items-center gap-1.5 md:gap-2 transition-colors whitespace-nowrap text-sm md:text-base ${
               activeTab === "apostas"
-                ? "text-[#FF3C00] font-bold"
-                : "text-slate-400 hover:text-slate-200"
+                ? "text-white font-bold"
+                : "text-white/70 hover:text-white"
             }`}
           >
             <Trophy className="w-4 h-4 md:w-5 md:h-5" />
@@ -58,8 +58,8 @@ export function Navbar({ activeTab, setActiveTab }: NavbarProps) {
             onClick={() => setActiveTab("historico")}
             className={`flex items-center gap-1.5 md:gap-2 transition-colors whitespace-nowrap text-sm md:text-base ${
               activeTab === "historico"
-                ? "text-[#FF3C00] font-bold"
-                : "text-slate-400 hover:text-slate-200"
+                ? "text-white font-bold"
+                : "text-white/70 hover:text-white"
             }`}
           >
             <History className="w-4 h-4 md:w-5 md:h-5" />
@@ -71,15 +71,15 @@ export function Navbar({ activeTab, setActiveTab }: NavbarProps) {
         {/* Balance (Desktop only) */}
         <div className="hidden md:flex items-center gap-4 w-[200px] justify-end">
           <div className="flex flex-col items-end">
-            <span className="text-xs text-slate-500 font-medium uppercase tracking-wider">
+            <span className="text-xs text-white/80 font-medium uppercase tracking-wider">
               Saldo
             </span>
-            <span className="font-bold text-[#FF3C00] flex items-center gap-1.5 text-base">
+            <span className="font-bold text-white flex items-center gap-1.5 text-base">
               R$ {balance.toFixed(2)}
             </span>
           </div>
-          <div className="w-10 h-10 bg-[#080808] rounded-full flex items-center justify-center shrink-0">
-            <Wallet className="w-5 h-5 text-[#FF3C00]" />
+          <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center shrink-0">
+            <Wallet className="w-5 h-5 text-white" />
           </div>
         </div>
         
