@@ -28,12 +28,16 @@ interface BetContextType {
   isLoadingMatches: boolean;
   betSlip: SlipItem[];
   placedBets: PlacedBet[];
+  selectedLeague: string | null;
+  activeTab: "apostas" | "historico";
   addToSlip: (matchId: string, oddType: OddType, oddValue: number) => void;
   removeFromSlip: (matchId: string, oddType: OddType) => void;
   clearSlip: () => void;
   placeBet: (amount: number) => void;
   resetAll: () => void;
   refreshMatches: () => void;
+  setSelectedLeague: (league: string | null) => void;
+  setActiveTab: (tab: "apostas" | "historico") => void;
 }
 
 const BetContext = createContext<BetContextType | undefined>(undefined);
@@ -74,6 +78,8 @@ export function BetProvider({ children }: { children: ReactNode }) {
   const [isLoadingMatches, setIsLoadingMatches] = useState<boolean>(true);
   const [betSlip, setBetSlip] = useState<SlipItem[]>([]);
   const [placedBets, setPlacedBets] = useState<PlacedBet[]>([]);
+  const [selectedLeague, setSelectedLeague] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"apostas" | "historico">("apostas");
   const [isInitialized, setIsInitialized] = useState(false);
 
   // Load from localStorage on mount
@@ -240,12 +246,16 @@ export function BetProvider({ children }: { children: ReactNode }) {
         isLoadingMatches,
         betSlip,
         placedBets,
+        selectedLeague,
+        activeTab,
         addToSlip,
         removeFromSlip,
         clearSlip,
         placeBet,
         resetAll,
         refreshMatches: fetchMatches,
+        setSelectedLeague,
+        setActiveTab,
       }}
     >
       {children}
