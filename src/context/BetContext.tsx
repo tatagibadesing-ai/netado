@@ -7,6 +7,10 @@ export interface SlipItem {
   matchId: string;
   oddType: OddType;
   oddValue: number;
+  homeTeam?: string;
+  awayTeam?: string;
+  homeLogo?: string;
+  awayLogo?: string;
 }
 
 export interface PlacedBet {
@@ -34,7 +38,7 @@ interface BetContextType {
 
 const BetContext = createContext<BetContextType | undefined>(undefined);
 
-const isPickWon = (pick: SlipItem, match: Match): boolean | null => {
+export const isPickWon = (pick: SlipItem, match: Match): boolean | null => {
   if (!match.isFinished) return null; // Pending
   
   const h = match.homeScore || 0;
@@ -193,10 +197,23 @@ export function BetProvider({ children }: { children: ReactNode }) {
     if (amount <= 0 || amount > balance || betSlip.length === 0) return;
 
     const totalOdds = betSlip.reduce((acc, item) => acc * item.oddValue, 1);
+    
+    // Enrich picks with match info so MyBets always has team names/logos
+    const enrichedPicks = betSlip.map((item) => {
+      const match = matches.find((m) => m.id === item.matchId);
+      return {
+        ...item,
+        homeTeam: match?.homeTeam || item.homeTeam,
+        awayTeam: match?.awayTeam || item.awayTeam,
+        homeLogo: match?.homeLogo || item.homeLogo,
+        awayLogo: match?.awayLogo || item.awayLogo,
+      };
+    });
+
     const newBet: PlacedBet = {
       id: Math.random().toString(36).substring(2, 9),
       amount,
-      picks: [...betSlip],
+      picks: enrichedPicks,
       totalOdds,
       potentialReturn: amount * totalOdds,
       status: "pending",
