@@ -15,19 +15,20 @@ function americanToDecimal(americanStr: string | number | undefined): number {
 export async function GET() {
   try {
     const now = new Date();
+    const spNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
     
     // Hoje
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
+    const yyyy = spNow.getFullYear();
+    const mm = String(spNow.getMonth() + 1).padStart(2, '0');
+    const dd = String(spNow.getDate()).padStart(2, '0');
     const todayStr = `${yyyy}${mm}${dd}`;
 
     // Amanhã
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tm_yyyy = tomorrow.getFullYear();
-    const tm_mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
-    const tm_dd = String(tomorrow.getDate()).padStart(2, '0');
+    const spTomorrow = new Date(spNow);
+    spTomorrow.setDate(spTomorrow.getDate() + 1);
+    const tm_yyyy = spTomorrow.getFullYear();
+    const tm_mm = String(spTomorrow.getMonth() + 1).padStart(2, '0');
+    const tm_dd = String(spTomorrow.getDate()).padStart(2, '0');
     const tomorrowStr = `${tm_yyyy}${tm_mm}${tm_dd}`;
 
     const dateRange = `${todayStr}-${tomorrowStr}`;
@@ -66,8 +67,9 @@ export async function GET() {
             }
 
             // Exibir data se for amanhã
-            const isTomorrow = matchDate.getDate() !== now.getDate();
-            const timeStr = matchDate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+            const spMatchDate = new Date(matchDate.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+            const isTomorrow = spMatchDate.getDate() !== spNow.getDate();
+            const timeStr = matchDate.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
             const displayTime = isTomorrow ? `Amanhã ${timeStr}` : timeStr;
             
             const homeComp = event.competitions[0].competitors.find((c: any) => c.homeAway === "home");
