@@ -1,22 +1,29 @@
 "use client";
 
-import React, { useState } from "react";
-import { Navbar } from "@/components/Navbar";
+import React from "react";
 import { MatchCard } from "@/components/MatchCard";
 import { BetSlip } from "@/components/BetSlip";
-import { Sidebar } from "@/components/Sidebar";
 import { useBet } from "@/context/BetContext";
-import { RefreshCcw, Filter } from "lucide-react";
+import { RefreshCcw } from "lucide-react";
 import { MyBets } from "@/components/MyBets";
 import { motion } from "framer-motion";
 
 export default function Home() {
-  const { matches, isLoadingMatches } = useBet();
-  const [activeTab, setActiveTab] = useState<"apostas" | "historico">("apostas");
-  const [selectedLeague, setSelectedLeague] = useState<string | null>(null);
+  const { matches, isLoadingMatches, activeTab, selectedLeague, setSelectedLeague } = useBet();
 
-  // Extract unique leagues
-  const leagues = Array.from(new Set(matches.map((m) => m.league))).sort();
+  // Extract unique leagues for mobile dropdown
+  const dynamicLeagues = Array.from(new Set(matches.map((m) => m.league)));
+  const FAMOUS_LEAGUES = [
+    "Brasileirão Série A",
+    "Copa do Brasil",
+    "CONMEBOL Libertadores",
+    "CONMEBOL Sudamericana",
+    "UEFA Champions League",
+    "Premier League",
+    "LaLiga",
+  ];
+  const allLeaguesSet = new Set([...FAMOUS_LEAGUES, ...dynamicLeagues]);
+  const allLeagues = Array.from(allLeaguesSet).sort();
 
   // Filter matches
   const displayedMatches = selectedLeague
@@ -25,21 +32,9 @@ export default function Home() {
 
   return (
     <>
-      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
-      <main className="flex-1 max-w-[1400px] mx-auto w-full p-4 lg:p-8 flex flex-col lg:flex-row gap-8 items-start relative">
-        
-        {/* Sidebar */}
-        {activeTab === "apostas" && (
-          <Sidebar 
-            leagues={leagues} 
-            selectedLeague={selectedLeague} 
-            onSelectLeague={setSelectedLeague} 
-          />
-        )}
-        
+      <main className="flex-1 max-w-[1400px] mx-auto w-full p-4 lg:p-8 flex flex-col gap-8">
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col gap-6 w-full min-w-0">
-
           <motion.div
             key={activeTab}
             initial={{ opacity: 0 }}
@@ -54,7 +49,7 @@ export default function Home() {
                     {selectedLeague ? selectedLeague : "Principais Eventos"}
                   </h2>
                   
-                  {/* Mobile League Filter Button (Visual only for now or could open a sheet) */}
+                  {/* Mobile League Filter Button */}
                   <div className="lg:hidden">
                     <select 
                       className="bg-[#181818] border border-white/10 text-white rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-[#FF3C00]"
@@ -62,7 +57,7 @@ export default function Home() {
                       onChange={(e) => setSelectedLeague(e.target.value || null)}
                     >
                       <option value="">Todas as Competições</option>
-                      {leagues.map((l) => (
+                      {allLeagues.map((l) => (
                         <option key={l} value={l}>{l}</option>
                       ))}
                     </select>
@@ -76,7 +71,7 @@ export default function Home() {
                   </div>
                 ) : displayedMatches.length === 0 ? (
                   <div className="text-center py-10 text-slate-500 bg-[#121212] rounded-xl border border-white/5">
-                    Nenhum evento principal encontrado para hoje nesta competição.
+                    Nenhum evento encontrado para esta competição.
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4">

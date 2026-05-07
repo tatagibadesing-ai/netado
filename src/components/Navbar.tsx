@@ -4,13 +4,8 @@ import React from "react";
 import { Wallet } from "lucide-react";
 import { useBet } from "../context/BetContext";
 
-interface NavbarProps {
-  activeTab: "apostas" | "historico";
-  setActiveTab: (tab: "apostas" | "historico") => void;
-}
-
-export function Navbar({ activeTab, setActiveTab }: NavbarProps) {
-  const { balance } = useBet();
+export function Navbar() {
+  const { balance, activeTab, setActiveTab } = useBet();
 
   return (
     <header className="bg-[#FF3C00] sticky top-0 z-50">
