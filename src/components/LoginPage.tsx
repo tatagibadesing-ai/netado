@@ -78,12 +78,12 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     <div className="min-h-screen bg-[#0A0A0A] flex">
 
       {/* ── LEFT: Form Panel ─────────────────────────────── */}
-      <div className="flex flex-col w-full lg:w-1/2 shrink-0 px-10 md:px-16 py-10 justify-between">
+      <div className="flex flex-col w-full lg:w-1/2 shrink-0 py-10 justify-between items-center">
 
         {/* Logo */}
-        <div>
+        <div className="w-full max-w-sm px-2">
           <div className="w-12 h-12 bg-[#FF3C00] rounded-xl flex items-center justify-center">
-            <img src="/netadologo.webp" alt="Netano" className="w-9 h-9 object-contain" />
+            <img src="/netadologo.webp" alt="Netano" className="w-9 h-9 object-contain" style={{ filter: "brightness(0) invert(1)" }} />
           </div>
         </div>
 
@@ -92,18 +92,18 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="flex flex-col gap-6"
+          className="flex flex-col gap-6 w-full max-w-sm px-2"
         >
           <div>
-            <h1 className="text-4xl font-black text-white mb-2">Entrar</h1>
-            <p className="text-slate-500 text-sm font-black leading-relaxed">
+            <h1 className="text-4xl font-semibold text-white mb-2">Entrar</h1>
+            <p className="text-slate-500 text-sm font-semibold leading-relaxed">
               Acesse sua conta e aposte nos maiores eventos esportivos do mundo.
             </p>
           </div>
 
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-wider">
+              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                 Nome de usuário
               </label>
               <input
@@ -111,7 +111,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="ex: joao123"
-                className="w-full bg-[#161616] text-white font-bold placeholder-slate-600 rounded-lg px-4 py-3.5 text-sm border border-white/5 focus:outline-none focus:border-[#FF3C00] transition-all"
+                className="w-full bg-[#161616] text-white font-semibold placeholder-slate-600 rounded-lg px-4 py-3.5 text-sm border border-white/5 focus:outline-none focus:border-[#FF3C00] transition-all"
                 autoFocus
                 disabled={isLoading}
               />
@@ -121,7 +121,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="text-red-400 text-xs font-black"
+                className="text-red-400 text-xs font-semibold"
               >
                 {error}
               </motion.p>
@@ -131,21 +131,23 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               type="submit"
               disabled={isLoading || !username.trim()}
               whileTap={{ scale: 0.97 }}
-              className="w-full bg-[#FF3C00] hover:bg-[#e03500] text-white font-black rounded-lg px-4 py-4 text-sm transition-colors disabled:opacity-40 mt-2"
+              className="w-full bg-[#FF3C00] hover:bg-[#e03500] text-white font-semibold rounded-lg px-4 py-4 text-sm transition-colors disabled:opacity-40 mt-2"
             >
               {isLoading ? "Entrando..." : "Entrar →"}
             </motion.button>
           </form>
 
-          <p className="text-slate-600 text-xs font-black">
+          <p className="text-slate-600 text-xs font-semibold">
             Novo aqui? Sua conta é criada automaticamente ao entrar pela primeira vez com R$ 1.000 de saldo.
           </p>
         </motion.div>
 
         {/* Footer */}
-        <p className="text-slate-700 text-xs font-black">
-          © 2025 Netano · Apostas Esportivas
-        </p>
+        <div className="w-full max-w-sm px-2">
+          <p className="text-slate-700 text-xs font-semibold">
+            © 2025 Netano · Apostas Esportivas
+          </p>
+        </div>
       </div>
 
       {/* ── RIGHT: Hero Image Panel (exact 50%) ──────────── */}
@@ -203,7 +205,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
         {/* Top-right favicon badge */}
         <div className="absolute top-8 right-8 z-10 bg-[#FF3C00] w-10 h-10 rounded-xl flex items-center justify-center">
-          <img src="/netadologo.webp" alt="Netano" className="w-7 h-7 object-contain" />
+          <img src="/netadologo.webp" alt="Netano" className="w-7 h-7 object-contain" style={{ filter: "brightness(0) invert(1)" }} />
         </div>
       </div>
 
