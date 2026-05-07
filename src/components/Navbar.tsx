@@ -20,9 +20,11 @@ export function Navbar({ activeTab, setActiveTab }: NavbarProps) {
         <div className="flex items-center justify-between w-full md:w-auto">
           {/* Logo */}
           <div className="flex items-center gap-2 w-[120px] md:w-[200px]">
-            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white uppercase italic">
-              Netano<span className="text-[#FF3C00]">.</span>
-            </h1>
+            <img 
+              src="/netadologocompleta.webp" 
+              alt="Netano" 
+              className="h-7 md:h-9 w-auto object-contain cursor-pointer" 
+            />
           </div>
 
           {/* Balance (Mobile only - Desktop balance is below) */}
