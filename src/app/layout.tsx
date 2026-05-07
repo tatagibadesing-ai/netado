@@ -8,6 +8,9 @@ const figtree = Figtree({ subsets: ["latin"], weight: ["300", "400", "500", "600
 export const metadata: Metadata = {
   title: "Netano - Apostas Esportivas",
   description: "A sua casa de apostas esportivas",
+  icons: {
+    icon: "/netadologo.webp",
+  },
 };
 
 export default function RootLayout({
