@@ -24,7 +24,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     try {
       // Tenta buscar o perfil existente
       let { data: profile, error: fetchError } = await supabase
-        .from("profiles")
+        .from("netano_profiles")
         .select("*")
         .eq("username", clean)
         .single();
@@ -32,7 +32,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       // Se não existe, cria um novo perfil
       if (fetchError && fetchError.code === "PGRST116") {
         const { data: newProfile, error: insertError } = await supabase
-          .from("profiles")
+          .from("netano_profiles")
           .insert({ username: clean, balance: 1000 })
           .select("*")
           .single();

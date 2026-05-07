@@ -112,7 +112,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
     if (saved) {
       try {
         const { uid, uname } = JSON.parse(saved);
-        supabase.from("profiles").select("balance").eq("id", uid).single().then(({ data }) => {
+        supabase.from("netano_profiles").select("balance").eq("id", uid).single().then(({ data }) => {
           if (data) {
             setUserId(uid);
             setUsername(uname);
@@ -133,7 +133,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!userId) return;
     supabase
-      .from("bets")
+      .from("netano_bets")
       .select("*")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
@@ -200,11 +200,11 @@ export function BetProvider({ children }: { children: ReactNode }) {
 
     if (toUpdate.length === 0) return;
     setPlacedBets(updated);
-    toUpdate.forEach(({ id, status }) => supabase.from("bets").update({ status }).eq("id", id));
+    toUpdate.forEach(({ id, status }) => supabase.from("netano_bets").update({ status }).eq("id", id));
     if (balanceDelta > 0) {
       const newBalance = balance + balanceDelta;
       setBalance(newBalance);
-      supabase.from("profiles").update({ balance: newBalance }).eq("id", userId);
+      supabase.from("netano_profiles").update({ balance: newBalance }).eq("id", userId);
     }
   }, [matches, userId]);
 
@@ -252,7 +252,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
     setBetSlip([]);
 
     await Promise.all([
-      supabase.from("bets").insert({
+      supabase.from("netano_bets").insert({
         id: newBet.id,
         user_id: userId,
         amount: newBet.amount,
@@ -261,7 +261,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
         potential_return: newBet.potentialReturn,
         status: newBet.status,
       }),
-      supabase.from("profiles").update({ balance: newBalance }).eq("id", userId),
+      supabase.from("netano_profiles").update({ balance: newBalance }).eq("id", userId),
     ]);
   };
 
@@ -270,8 +270,8 @@ export function BetProvider({ children }: { children: ReactNode }) {
     setBetSlip([]);
     setPlacedBets([]);
     if (userId) {
-      supabase.from("profiles").update({ balance: 1000 }).eq("id", userId);
-      supabase.from("bets").delete().eq("user_id", userId);
+      supabase.from("netano_profiles").update({ balance: 1000 }).eq("id", userId);
+      supabase.from("netano_bets").delete().eq("user_id", userId);
     }
     fetchMatches();
   };
