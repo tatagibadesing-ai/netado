@@ -114,13 +114,16 @@ export function BetProvider({ children }: { children: ReactNode }) {
       const newBets = prevBets.map((bet) => {
         if (bet.status !== "pending") return bet;
 
-        let won = true;
         let isPending = false;
         let hasLostPick = false;
 
         for (const pick of bet.picks) {
           const match = currentMatches.find(m => m.id === pick.matchId);
-          if (!match) continue; // Should not happen, but assume pending if match not found
+          if (!match) {
+            // Match not in current feed -> we don't know the result yet. Keep pending.
+            isPending = true;
+            continue;
+          }
 
           const pickResult = isPickWon(pick, match);
           
