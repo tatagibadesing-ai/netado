@@ -1,11 +1,11 @@
 "use client";
 
 import React from "react";
-import { Wallet } from "lucide-react";
+import { Wallet, LogOut } from "lucide-react";
 import { useBet } from "../context/BetContext";
 
 export function Navbar() {
-  const { balance, activeTab, setActiveTab } = useBet();
+  const { balance, activeTab, setActiveTab, username, logout } = useBet();
 
   return (
     <header className="bg-[#FF3C00] sticky top-0 z-50">
@@ -59,19 +59,22 @@ export function Navbar() {
           </button>
         </div>
 
-        {/* Balance (Desktop only) */}
-        <div className="hidden md:flex items-center gap-4 w-[200px] justify-end h-full">
+        {/* Balance + User (Desktop only) */}
+        <div className="hidden md:flex items-center gap-3 justify-end h-full">
           <div className="flex flex-col items-end">
-            <span className="text-xs text-white/90 font-bold uppercase tracking-wider">
-              Saldo
-            </span>
-            <span className="font-black text-white flex items-center gap-1 text-lg">
-              R$ {balance.toFixed(2)}
-            </span>
+            <span className="text-xs text-white/70 font-medium">{username}</span>
+            <span className="font-black text-white text-lg">R$ {balance.toFixed(2)}</span>
           </div>
           <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center shrink-0">
             <Wallet className="w-5 h-5 text-white" />
           </div>
+          <button
+            onClick={logout}
+            title="Sair"
+            className="w-9 h-9 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors shrink-0"
+          >
+            <LogOut className="w-4 h-4 text-white" />
+          </button>
         </div>
         
       </div>

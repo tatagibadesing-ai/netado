@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Match, OddType, initialMatches } from "../data/matches";
+import { supabase } from "../lib/supabase";
 
 export interface SlipItem {
   matchId: string;
@@ -23,6 +24,11 @@ export interface PlacedBet {
 }
 
 interface BetContextType {
+  userId: string | null;
+  username: string | null;
+  isLoggedIn: boolean;
+  login: (userId: string, username: string, balance: number) => void;
+  logout: () => void;
   balance: number;
   matches: Match[];
   isLoadingMatches: boolean;
@@ -43,12 +49,10 @@ interface BetContextType {
 const BetContext = createContext<BetContextType | undefined>(undefined);
 
 export const isPickWon = (pick: SlipItem, match: Match): boolean | null => {
-  if (!match.isFinished) return null; // Pending
-  
+  if (!match.isFinished) return null;
   const h = match.homeScore || 0;
   const a = match.awayScore || 0;
   const total = h + a;
-
   switch (pick.oddType) {
     case 'home': return h > a;
     case 'draw': return h === a;
@@ -73,6 +77,9 @@ export const isPickWon = (pick: SlipItem, match: Match): boolean | null => {
 };
 
 export function BetProvider({ children }: { children: ReactNode }) {
+  const [userId, setUserId] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [balance, setBalance] = useState<number>(1000.0);
   const [matches, setMatches] = useState<Match[]>([]);
   const [isLoadingMatches, setIsLoadingMatches] = useState<boolean>(true);
@@ -80,136 +87,147 @@ export function BetProvider({ children }: { children: ReactNode }) {
   const [placedBets, setPlacedBets] = useState<PlacedBet[]>([]);
   const [selectedLeague, setSelectedLeague] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"apostas" | "historico">("apostas");
-  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Load from localStorage on mount
-  useEffect(() => {
-    try {
-      const savedBalance = localStorage.getItem("bet_balance");
-      const savedSlip = localStorage.getItem("bet_slip");
-      const savedBets = localStorage.getItem("bet_placed");
-
-      if (savedBalance) setBalance(parseFloat(savedBalance));
-      if (savedSlip) setBetSlip(JSON.parse(savedSlip));
-      if (savedBets) setPlacedBets(JSON.parse(savedBets));
-    } catch (e) {
-      console.error("Error loading state from localStorage", e);
-    }
-    setIsInitialized(true);
-  }, []);
-
-  // Save to localStorage when state changes
-  useEffect(() => {
-    if (isInitialized) {
-      localStorage.setItem("bet_balance", balance.toString());
-      localStorage.setItem("bet_slip", JSON.stringify(betSlip));
-      localStorage.setItem("bet_placed", JSON.stringify(placedBets));
-    }
-  }, [balance, betSlip, placedBets, isInitialized]);
-
-  const evaluateBets = (currentMatches: Match[]) => {
-    setPlacedBets((prevBets) => {
-      let winnings = 0;
-      let stateChanged = false;
-      const newBets = prevBets.map((bet) => {
-        if (bet.status !== "pending") return bet;
-
-        let isPending = false;
-        let hasLostPick = false;
-
-        for (const pick of bet.picks) {
-          const match = currentMatches.find(m => m.id === pick.matchId);
-          if (!match) {
-            // Match not in current feed -> we don't know the result yet. Keep pending.
-            isPending = true;
-            continue;
-          }
-
-          const pickResult = isPickWon(pick, match);
-          
-          if (pickResult === null) {
-            isPending = true;
-          } else if (pickResult === false) {
-            hasLostPick = true;
-            break;
-          }
-        }
-
-        if (hasLostPick) {
-            stateChanged = true;
-            return { ...bet, status: "lost" as const };
-        }
-
-        if (!isPending) {
-            winnings += bet.potentialReturn;
-            stateChanged = true;
-            return { ...bet, status: "won" as const };
-        }
-
-        return bet;
-      });
-
-      if (stateChanged) {
-          if (winnings > 0) {
-            setBalance((prev) => prev + winnings);
-          }
-          return newBets;
-      }
-      return prevBets;
-    });
+  // ── Auth ───────────────────────────────────────────────────────────
+  const login = (uid: string, uname: string, bal: number) => {
+    setUserId(uid);
+    setUsername(uname);
+    setBalance(bal);
+    setIsLoggedIn(true);
+    localStorage.setItem("netano_user", JSON.stringify({ uid, uname }));
   };
 
+  const logout = () => {
+    setUserId(null);
+    setUsername(null);
+    setIsLoggedIn(false);
+    setPlacedBets([]);
+    setBetSlip([]);
+    localStorage.removeItem("netano_user");
+  };
+
+  // Restore session on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("netano_user");
+    if (saved) {
+      try {
+        const { uid, uname } = JSON.parse(saved);
+        supabase.from("profiles").select("balance").eq("id", uid).single().then(({ data }) => {
+          if (data) {
+            setUserId(uid);
+            setUsername(uname);
+            setBalance(data.balance);
+            setIsLoggedIn(true);
+          } else {
+            localStorage.removeItem("netano_user");
+          }
+        });
+      } catch {
+        localStorage.removeItem("netano_user");
+      }
+    }
+    fetchMatches();
+  }, []);
+
+  // Load bets from Supabase when user logs in
+  useEffect(() => {
+    if (!userId) return;
+    supabase
+      .from("bets")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        if (data) {
+          const mapped: PlacedBet[] = data.map((b: any) => ({
+            id: b.id,
+            amount: b.amount,
+            picks: b.picks,
+            totalOdds: b.total_odds,
+            potentialReturn: b.potential_return,
+            status: b.status,
+          }));
+          setPlacedBets(mapped);
+        }
+      });
+  }, [userId]);
+
+  // ── Match fetching ─────────────────────────────────────────────────
   const fetchMatches = async () => {
     setIsLoadingMatches(true);
     try {
       const res = await fetch("/api/matches");
       const data = await res.json();
-      if (data && data.length > 0) {
-        setMatches(data);
-        evaluateBets(data);
-      } else {
-        setMatches(initialMatches); // Fallback
-        evaluateBets(initialMatches);
-      }
-    } catch (err) {
-      console.error("Erro ao buscar jogos reais:", err);
-      setMatches(initialMatches); // Fallback
-      evaluateBets(initialMatches);
+      setMatches(data && data.length > 0 ? data : initialMatches);
+    } catch {
+      setMatches(initialMatches);
     } finally {
       setIsLoadingMatches(false);
     }
   };
 
+  // ── Bet evaluation ─────────────────────────────────────────────────
   useEffect(() => {
-    if (isInitialized) {
-        fetchMatches();
-    }
-  }, [isInitialized]);
+    if (!userId || matches.length === 0 || placedBets.length === 0) return;
 
+    const toUpdate: { id: string; status: "won" | "lost" }[] = [];
+    let balanceDelta = 0;
+
+    const updated = placedBets.map((bet) => {
+      if (bet.status !== "pending") return bet;
+      let isPending = false;
+      let hasLostPick = false;
+
+      for (const pick of bet.picks) {
+        const match = matches.find(m => m.id === pick.matchId);
+        if (!match) { isPending = true; continue; }
+        const result = isPickWon(pick, match);
+        if (result === null) isPending = true;
+        else if (result === false) { hasLostPick = true; break; }
+      }
+
+      if (hasLostPick) {
+        toUpdate.push({ id: bet.id, status: "lost" });
+        return { ...bet, status: "lost" as const };
+      }
+      if (!isPending) {
+        toUpdate.push({ id: bet.id, status: "won" });
+        balanceDelta += bet.potentialReturn;
+        return { ...bet, status: "won" as const };
+      }
+      return bet;
+    });
+
+    if (toUpdate.length === 0) return;
+    setPlacedBets(updated);
+    toUpdate.forEach(({ id, status }) => supabase.from("bets").update({ status }).eq("id", id));
+    if (balanceDelta > 0) {
+      const newBalance = balance + balanceDelta;
+      setBalance(newBalance);
+      supabase.from("profiles").update({ balance: newBalance }).eq("id", userId);
+    }
+  }, [matches, userId]);
+
+  // ── Slip actions ───────────────────────────────────────────────────
   const addToSlip = (matchId: string, oddType: OddType, oddValue: number) => {
-    setBetSlip((prev) => {
-      // Remove the EXACT pick if it exists so we don't duplicate, but allow other picks from the same match
-      const filtered = prev.filter((item) => !(item.matchId === matchId && item.oddType === oddType));
+    setBetSlip(prev => {
+      const filtered = prev.filter(item => !(item.matchId === matchId && item.oddType === oddType));
       return [...filtered, { matchId, oddType, oddValue }];
     });
   };
 
-  const removeFromSlip = (matchId: string, oddType: OddType) => {
-    setBetSlip((prev) => prev.filter((item) => !(item.matchId === matchId && item.oddType === oddType)));
-  };
+  const removeFromSlip = (matchId: string, oddType: OddType) =>
+    setBetSlip(prev => prev.filter(item => !(item.matchId === matchId && item.oddType === oddType)));
 
-  const clearSlip = () => {
-    setBetSlip([]);
-  };
+  const clearSlip = () => setBetSlip([]);
 
-  const placeBet = (amount: number) => {
-    if (amount <= 0 || amount > balance || betSlip.length === 0) return;
+  // ── Place Bet ──────────────────────────────────────────────────────
+  const placeBet = async (amount: number) => {
+    if (!userId || amount <= 0 || amount > balance || betSlip.length === 0) return;
 
     const totalOdds = betSlip.reduce((acc, item) => acc * item.oddValue, 1);
-    
-    // Enrich picks with match info so MyBets always has team names/logos
-    const enrichedPicks = betSlip.map((item) => {
-      const match = matches.find((m) => m.id === item.matchId);
+    const enrichedPicks = betSlip.map(item => {
+      const match = matches.find(m => m.id === item.matchId);
       return {
         ...item,
         homeTeam: match?.homeTeam || item.homeTeam,
@@ -228,37 +246,44 @@ export function BetProvider({ children }: { children: ReactNode }) {
       status: "pending",
     };
 
-    setBalance((prev) => prev - amount);
-    setPlacedBets((prev) => [newBet, ...prev]);
+    const newBalance = balance - amount;
+    setBalance(newBalance);
+    setPlacedBets(prev => [newBet, ...prev]);
     setBetSlip([]);
+
+    await Promise.all([
+      supabase.from("bets").insert({
+        id: newBet.id,
+        user_id: userId,
+        amount: newBet.amount,
+        picks: newBet.picks,
+        total_odds: newBet.totalOdds,
+        potential_return: newBet.potentialReturn,
+        status: newBet.status,
+      }),
+      supabase.from("profiles").update({ balance: newBalance }).eq("id", userId),
+    ]);
   };
 
   const resetAll = () => {
     setBalance(1000);
-    setMatches(initialMatches);
     setBetSlip([]);
     setPlacedBets([]);
+    if (userId) {
+      supabase.from("profiles").update({ balance: 1000 }).eq("id", userId);
+      supabase.from("bets").delete().eq("user_id", userId);
+    }
     fetchMatches();
   };
 
   return (
     <BetContext.Provider
       value={{
-        balance,
-        matches,
-        isLoadingMatches,
-        betSlip,
-        placedBets,
-        selectedLeague,
-        activeTab,
-        addToSlip,
-        removeFromSlip,
-        clearSlip,
-        placeBet,
-        resetAll,
-        refreshMatches: fetchMatches,
-        setSelectedLeague,
-        setActiveTab,
+        userId, username, isLoggedIn, login, logout,
+        balance, matches, isLoadingMatches, betSlip, placedBets,
+        selectedLeague, activeTab,
+        addToSlip, removeFromSlip, clearSlip, placeBet, resetAll,
+        refreshMatches: fetchMatches, setSelectedLeague, setActiveTab,
       }}
     >
       {children}
@@ -268,8 +293,6 @@ export function BetProvider({ children }: { children: ReactNode }) {
 
 export function useBet() {
   const context = useContext(BetContext);
-  if (!context) {
-    throw new Error("useBet must be used within a BetProvider");
-  }
+  if (!context) throw new Error("useBet must be used within a BetProvider");
   return context;
 }
