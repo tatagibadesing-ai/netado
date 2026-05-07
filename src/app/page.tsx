@@ -3,6 +3,7 @@
 import React from "react";
 import { MatchCard } from "@/components/MatchCard";
 import { BetSlip } from "@/components/BetSlip";
+import { LeagueSelect } from "@/components/LeagueSelect";
 import { useBet } from "@/context/BetContext";
 import { RefreshCcw } from "lucide-react";
 import { MyBets } from "@/components/MyBets";
@@ -44,23 +45,18 @@ export default function Home() {
           >
             {activeTab === "apostas" ? (
               <div className="flex flex-col gap-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2 line-clamp-2">
                     {selectedLeague ? selectedLeague : "Principais Eventos"}
                   </h2>
                   
                   {/* Mobile League Filter Button */}
-                  <div className="lg:hidden">
-                    <select 
-                      className="bg-[#181818] border border-white/10 text-white rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-[#FF3C00]"
-                      value={selectedLeague || ""}
-                      onChange={(e) => setSelectedLeague(e.target.value || null)}
-                    >
-                      <option value="">Todas as Competições</option>
-                      {allLeagues.map((l) => (
-                        <option key={l} value={l}>{l}</option>
-                      ))}
-                    </select>
+                  <div className="lg:hidden w-full sm:w-[250px] shrink-0">
+                    <LeagueSelect 
+                      leagues={allLeagues} 
+                      selectedLeague={selectedLeague} 
+                      onSelectLeague={setSelectedLeague} 
+                    />
                   </div>
                 </div>
                 
