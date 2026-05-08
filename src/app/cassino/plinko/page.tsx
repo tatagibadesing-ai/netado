@@ -153,22 +153,20 @@ function playLose() {
 // RTP = 0.120+0.120+0.340+0.360 = 0.940 → 94% ✓ close enough, tweak 1.2x→1.3x
 //   1.3x: 1.3×0.300 = 0.390 → RTP = 0.120+0.120+0.340+0.390 = 0.970 ✓ 97% RTP
 // 52% player edge / 48% house.
-// Profitable weight = 520/1000, loss weight = 480/1000.
-// RTP = 20×(6/1000) + 5×(24/1000) + 2×(170/1000) + 1.3×(320/1000)
-//     = 0.120 + 0.120 + 0.340 + 0.416 = 0.996 → ~99.6% RTP
-// (player wins 52% of bets; house keeps 0.4% long-term)
+// 20x weight raised 20% per side: 3 → 4 (each side). Center 0x -2 to keep total=1000.
+// Profitable: 4+12+85+160+160+85+12+4 = 522 | Loss: 160+160+158 = 478 | Total = 1000 ✓
 const SLOTS = [
-  { label: "20x",  value: 20,  win: true,  weight: 3   },
+  { label: "20x",  value: 20,  win: true,  weight: 4   },
   { label: "5x",   value: 5,   win: true,  weight: 12  },
   { label: "2x",   value: 2,   win: true,  weight: 85  },
   { label: "1.3x", value: 1.3, win: true,  weight: 160 },
   { label: "0x",   value: 0,   win: false, weight: 160 },
-  { label: "0x",   value: 0,   win: false, weight: 160 },
+  { label: "0x",   value: 0,   win: false, weight: 158 },
   { label: "0x",   value: 0,   win: false, weight: 160 },
   { label: "1.3x", value: 1.3, win: true,  weight: 160 },
   { label: "2x",   value: 2,   win: true,  weight: 85  },
   { label: "5x",   value: 5,   win: true,  weight: 12  },
-  { label: "20x",  value: 20,  win: true,  weight: 3   },
+  { label: "20x",  value: 20,  win: true,  weight: 4   },
 ];
 
 function pickWeighted(slots: (typeof SLOTS[number] & { i: number })[]) {
