@@ -5,11 +5,12 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useBet } from "@/context/BetContext";
 import { ArrowLeft, X, BarChart2 } from "lucide-react";
+import { playBetPlaced, playCashout, playExplosion, playLose, playSpinTick } from "@/lib/sfx";
 
 type CrashPhase = "waiting" | "running" | "crashed";
 interface HistoryEntry { multiplier: number; }
 
-function useCrashGame() {
+function useCrashGame(isWelcome: () => boolean) {
   const [phase, setPhase] = useState<CrashPhase>("waiting");
   const [multiplier, setMultiplier] = useState(1.0);
   const [history, setHistory] = useState<HistoryEntry[]>([
@@ -23,9 +24,10 @@ function useCrashGame() {
   const crashAtRef = useRef<number>(1);
 
   const generateCrashPoint = () => {
+    // Welcome: RTP 130% (crash 1.30/u). Normal: RTP 105% (crash 1.05/u).
+    const numerator = isWelcome() ? 1.30 : 1.05;
     const u = Math.random();
-    if (u >= 1) return 1.0;
-    return Math.max(1.0, 1 / (1 - u));
+    return Math.max(1.01, numerator / Math.max(u, 0.001));
   };
 
   const startRound = useCallback(() => {
@@ -198,10 +200,21 @@ function CrashChart({ phase, multiplier }: { phase: CrashPhase; multiplier: numb
 export default function CrashPage() {
   const router = useRouter();
   const { balance, userId, login, username } = useBet();
-  const { phase, multiplier, history, countdown } = useCrashGame();
+  const betCountRef = useRef(0);
+  const betActiveRef = useRef(false);
+  useEffect(() => {
+    if (!userId) return;
+    const stored = localStorage.getItem(`crash_bet_count_${userId}`);
+    betCountRef.current = stored ? parseInt(stored, 10) : 0;
+  }, [userId]);
+  const isWelcome = useCallback(() => {
+    return betActiveRef.current && betCountRef.current <= 10;
+  }, []);
+  const { phase, multiplier, history, countdown } = useCrashGame(isWelcome);
   const [betAmount, setBetAmount] = useState(10);
   const [autoWithdraw, setAutoWithdraw] = useState("");
   const [betActive, setBetActive] = useState(false);
+  useEffect(() => { betActiveRef.current = betActive; }, [betActive]);
   const [cashedOut, setCashedOut] = useState<number | null>(null);
   const [mode, setMode] = useState<"normal" | "auto">("normal");
   const prevPhase = useRef<CrashPhase>("waiting");
@@ -210,8 +223,12 @@ export default function CrashPage() {
     if (phase !== "waiting") return;
     if (betActive) return;
     if (betAmount <= 0 || betAmount > balance) return;
+    betCountRef.current += 1;
+    if (userId) localStorage.setItem(`crash_bet_count_${userId}`, String(betCountRef.current));
+    betActiveRef.current = true;
     setCashedOut(null);
     setBetActive(true);
+    playBetPlaced();
     const newBalance = balance - betAmount;
     login(userId!, username!, newBalance);
     if (userId) {
@@ -225,6 +242,7 @@ export default function CrashPage() {
     const newBalance = balance + winnings;
     setCashedOut(mult);
     setBetActive(false);
+    playCashout();
     login(userId!, username!, newBalance);
     if (userId) {
       const { supabase } = await import("@/lib/supabase");
@@ -238,11 +256,21 @@ export default function CrashPage() {
   };
 
   useEffect(() => {
-    if (prevPhase.current === "running" && phase === "crashed" && betActive && cashedOut === null) {
-      setBetActive(false);
+    if (prevPhase.current !== "crashed" && phase === "crashed") {
+      playExplosion();
+      if (betActive && cashedOut === null) {
+        setTimeout(() => playLose(), 220);
+        setBetActive(false);
+      }
     }
     prevPhase.current = phase;
   }, [phase, betActive, cashedOut]);
+
+  useEffect(() => {
+    if (phase === "waiting" && countdown > 0 && countdown <= 3) {
+      playSpinTick();
+    }
+  }, [countdown, phase]);
 
   useEffect(() => {
     if (phase === "running" && betActive && cashedOut === null && autoWithdraw) {

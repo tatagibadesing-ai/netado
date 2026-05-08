@@ -11,8 +11,10 @@ const GAMES = [
   { id: "crash",  name: "Crash",  label: "Netano Originals", img: "/crashgamenetado.webp",  accent: "#FF3C00" },
   { id: "double", name: "Double", label: "Netano Originals", img: "/doublenetano.webp",      accent: "#FF3C00" },
   { id: "mines",  name: "Mines",  label: "Netano Originals", img: "/minesgamenetado.webp",   accent: "#FF3C00" },
-  { id: "dice",   name: "Dice",   label: "Netano Originals", img: "/dicenetano.webp",        accent: "#FF3C00" },
+  { id: "derby",  name: "DerbyNetano", label: "Netano Originals", img: "/derbynetano.webp",  accent: "#FF3C00" },
+  { id: "slots",  name: "Slots",  label: "Netano Originals", img: "/Slotmachinenetano.webp", accent: "#FF3C00" },
   { id: "plinko", name: "Plinko", label: "Netano Originals", img: "/plinkogamenetano.webp",  accent: "#FF3C00" },
+  { id: "dice",   name: "Dice",   label: "Netano Originals", img: "/dicenetano.webp",        accent: "#FF3C00" },
   // { id: "quiz",   name: "Quiz",   label: "Netano Originals", img: "/quiznetano.webp",        accent: "#FF3C00" },
 ];
 
@@ -62,7 +64,7 @@ function GamesCarousel({ onPlay }: { onPlay: (id: string) => void }) {
     return () => mq.removeEventListener("change", handler);
   }, []);
 
-  const N = isMobile ? 2.3 : 6;
+  const N = isMobile ? 2.3 : 7;
   const maxOffset = Math.max(0, GAMES.length - Math.floor(N));
 
   const prev = () => setOffset(o => Math.max(0, o - 1));
@@ -70,10 +72,10 @@ function GamesCarousel({ onPlay }: { onPlay: (id: string) => void }) {
 
   const cardW = isMobile
     ? `calc((100% - ${GAP}px) / 2.3)`
-    : `calc((100% - ${5 * GAP}px) / 6)`;
+    : `calc((100% - ${6 * GAP}px) / 7)`;
   const stepX = isMobile
     ? `calc((100% - ${GAP}px) / 2.3 + ${GAP}px)`
-    : `calc((100% - ${5 * GAP}px) / 6 + ${GAP}px)`;
+    : `calc((100% - ${6 * GAP}px) / 7 + ${GAP}px)`;
 
   const handleDragEnd = (_: unknown, info: { offset: { x: number } }) => {
     if (info.offset.x < -40) next();
@@ -146,7 +148,11 @@ export default function CassinoPage() {
   const activeGameData = GAMES.find(g => g.id === activeGame);
 
   const handlePlay = (id: string) => {
-    if (id === "crash" || id === "double" || id === "mines" || id === "dice" || id === "plinko") {
+    if (id === "derby") {
+      router.push("/derby");
+      return;
+    }
+    if (id === "crash" || id === "double" || id === "mines" || id === "dice" || id === "plinko" || id === "slots") {
       router.push(`/cassino/${id}`);
     } else {
       setActiveGame(id);

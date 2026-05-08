@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useBet } from "@/context/BetContext";
 import { ArrowLeft, RefreshCw } from "lucide-react";
+import { playClick, playLose, playWin } from "@/lib/sfx";
 
 const ACCENT_RED = "#FF3C00";
 const TRACK_GREEN_WIN = "#07E385";
@@ -45,7 +46,8 @@ function DiceBackdrop() {
 }
 
 function calcMultiplier(winChance: number): number {
-  return Math.round((100 / winChance) * 100) / 100;
+  // RTP 110% — multiplier = 110/winChance
+  return Math.round((110 / winChance) * 100) / 100;
 }
 
 function DiceSlider({
@@ -206,8 +208,8 @@ export default function DicePage() {
 
   const handleMultiplierChange = (raw: string) => {
     const m = parseFloat(raw.replace(",", "."));
-    if (!isNaN(m) && m >= 1.02) {
-      const wc = 97 / m;
+    if (!isNaN(m) && m >= 1.12) {
+      const wc = 110 / m;
       setRollOver(Math.min(98, Math.max(2, Math.round((100 - wc) * 100) / 100)));
     }
   };
@@ -226,6 +228,7 @@ export default function DicePage() {
     await supabase.from("netano_profiles").update({ balance: newBalance }).eq("id", userId);
     setPhase("rolling");
     setResult(null);
+    playClick();
     await new Promise((r) => setTimeout(r, 500));
     const rolled = Math.round(Math.random() * 10000) / 100;
     const won = rolled > rollOver;
@@ -233,10 +236,13 @@ export default function DicePage() {
     setPhase(won ? "won" : "lost");
     setHistory((h) => [{ value: rolled, won }, ...h].slice(0, 20));
     if (won) {
+      playWin();
       const payout = betAmount * multiplier;
       const finalBalance = newBalance + payout;
       login(userId!, username!, finalBalance);
       await supabase.from("netano_profiles").update({ balance: finalBalance }).eq("id", userId);
+    } else {
+      playLose();
     }
   };
 

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useBet } from "@/context/BetContext";
 import { ArrowLeft, BarChart2 } from "lucide-react";
+import { playBetPlaced, playCashout, playLose, playSpinTick, playSpinning, playWin } from "@/lib/sfx";
 
 type Color = "red" | "black" | "white";
 type Phase = "waiting" | "spinning" | "result";
@@ -22,7 +23,7 @@ const SLOTS: Slot[] = [
   { value: 13, color: "red"   }, { value: 14, color: "black" },
 ];
 
-const MULTIPLIERS: Record<Color, number> = { red: 2, black: 2, white: 15 };
+const MULTIPLIERS: Record<Color, number> = { red: 2.2, black: 2.2, white: 16 };
 const SLOT_W = 110;
 const GAP = 8;
 const TRACK_REPS = 100;
@@ -35,7 +36,40 @@ const slotColor = (s: Slot) =>
 
 function generateResult(): number { return Math.floor(Math.random() * 15); }
 
-function useDoubleGame() {
+// Resultado enviesado para favorecer a cor escolhida pelo jogador (RTP ~130%)
+// Probabilidades alvo: red=29%, black=29%, white=2%, vencedora_escolhida=40% (em vez de 46%/46%/7%)
+// Para RTP=130% com escolha vencedora pagando 2.20x: 0.591 * 2.20 = 130%
+// Para escolha branca: 0.0875 * 16 = 140%, próximo
+function generateBiasedResult(favoredColor: "red" | "black" | "white" | null): number {
+  if (!favoredColor) return generateResult();
+  const r = Math.random();
+  if (favoredColor === "white") {
+    // P(white) = 0.0875 → RTP white = 140%
+    if (r < 0.0875) return 0; // slot 0 é o white
+    // distribuir o resto entre os 14 slots não-brancos
+    return 1 + Math.floor(Math.random() * 14);
+  } else {
+    // P(escolhida) = 0.591 → RTP = 130%
+    // P(white) = 0.0667 (1/15 normal), P(outra cor) = 0.342
+    if (r < 0.591) {
+      // forçar cor escolhida (red ou black)
+      const color = favoredColor;
+      const slots = [];
+      for (let i = 0; i < 15; i++) if (i > 0 && (i % 2 === 1 ? "red" : "black") === color) slots.push(i);
+      return slots[Math.floor(Math.random() * slots.length)];
+    } else if (r < 0.591 + 0.0667) {
+      return 0; // white
+    } else {
+      // outra cor
+      const otherColor = favoredColor === "red" ? "black" : "red";
+      const slots = [];
+      for (let i = 0; i < 15; i++) if (i > 0 && (i % 2 === 1 ? "red" : "black") === otherColor) slots.push(i);
+      return slots[Math.floor(Math.random() * slots.length)];
+    }
+  }
+}
+
+function useDoubleGame(getFavoredColor: () => "red" | "black" | "white" | null) {
   const [phase, setPhase] = useState<Phase>("waiting");
   const [countdown, setCountdown] = useState(5);
   const [resultIndex, setResultIndex] = useState<number | null>(null);
@@ -49,7 +83,8 @@ function useDoubleGame() {
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const startSpin = useCallback(() => {
-    const idx = generateResult();
+    const favored = getFavoredColor();
+    const idx = favored ? generateBiasedResult(favored) : generateResult();
     setResultIndex(idx);
     setPhase("spinning");
     spinTimeoutRef.current = setTimeout(() => {
@@ -65,7 +100,7 @@ function useDoubleGame() {
       cd -= 1; setCountdown(cd);
       if (cd <= 0) { clearInterval(countdownRef.current!); startSpin(); }
     }, 1000);
-  }, [startSpin]);
+  }, [startSpin]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (phase === "result") { const t = setTimeout(scheduleNext, 3000); return () => clearTimeout(t); }
@@ -149,10 +184,26 @@ function Reel({ phase, resultIndex }: { phase: Phase; resultIndex: number | null
 export default function DoublePage() {
   const router = useRouter();
   const { balance, userId, login, username } = useBet();
-  const { phase, countdown, resultIndex, history } = useDoubleGame();
   const [betAmount, setBetAmount] = useState(10);
   const [selectedColor, setSelectedColor] = useState<Color | null>(null);
+  const betCountRef = useRef(0);
+  const selectedColorRef = useRef<Color | null>(null);
+  const betActiveRef = useRef(false);
+  useEffect(() => { selectedColorRef.current = selectedColor; }, [selectedColor]);
+  useEffect(() => {
+    if (!userId) return;
+    const stored = localStorage.getItem(`double_bet_count_${userId}`);
+    betCountRef.current = stored ? parseInt(stored, 10) : 0;
+  }, [userId]);
+  const getFavoredColor = useCallback((): Color | null => {
+    // Só enviesa se: (1) usuário com aposta ativa e cor escolhida (2) ainda nas 8 primeiras
+    if (!betActiveRef.current || !selectedColorRef.current) return null;
+    if (betCountRef.current >= 8) return null;
+    return selectedColorRef.current;
+  }, []);
+  const { phase, countdown, resultIndex, history } = useDoubleGame(getFavoredColor);
   const [betActive, setBetActive] = useState(false);
+  useEffect(() => { betActiveRef.current = betActive; }, [betActive]);
   const [lastResult, setLastResult] = useState<{ won: boolean; payout: number } | null>(null);
   const [mode, setMode] = useState<"normal" | "auto">("normal");
   const prevPhase = useRef<Phase>("waiting");
@@ -166,10 +217,14 @@ export default function DoublePage() {
       if (won) {
         const newBalance = balance + payout;
         login(userId!, username!, newBalance);
+        playCashout();
+        setTimeout(() => playWin(), 150);
         (async () => {
           const { supabase } = await import("@/lib/supabase");
           await supabase.from("netano_profiles").update({ balance: newBalance }).eq("id", userId);
         })();
+      } else {
+        playLose();
       }
       setLastResult({ won, payout });
       setBetActive(false);
@@ -177,9 +232,25 @@ export default function DoublePage() {
     prevPhase.current = phase;
   }, [phase, betActive, resultIndex, selectedColor, balance, userId, username, login, betAmount]);
 
+  useEffect(() => {
+    if (phase === "waiting" && countdown > 0 && countdown <= 3) {
+      playSpinTick();
+    }
+  }, [countdown, phase]);
+
+  useEffect(() => {
+    if (phase !== "spinning") return;
+    const stop = playSpinning(4);
+    return () => stop();
+  }, [phase]);
+
   const handleBet = async () => {
     if (phase !== "waiting" || !selectedColor || betAmount <= 0 || betAmount > balance) return;
+    betCountRef.current += 1;
+    if (userId) localStorage.setItem(`double_bet_count_${userId}`, String(betCountRef.current));
+    betActiveRef.current = true;
     setBetActive(true); setLastResult(null);
+    playBetPlaced();
     const newBalance = balance - betAmount;
     login(userId!, username!, newBalance);
     const { supabase } = await import("@/lib/supabase");

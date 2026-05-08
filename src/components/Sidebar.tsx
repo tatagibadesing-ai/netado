@@ -17,12 +17,9 @@ const FAMOUS_LEAGUES = [
 export function Sidebar() {
   const { matches, selectedLeague, setSelectedLeague, activeTab } = useBet();
 
-  // Extract unique leagues from current matches
   const dynamicLeagues = Array.from(new Set(matches.map((m) => m.league)));
-  
-  // Combine famous leagues with dynamic ones, removing duplicates
-  const allLeaguesSet = new Set([...FAMOUS_LEAGUES, ...dynamicLeagues]);
-  const allLeagues = Array.from(allLeaguesSet).sort();
+  const allLeaguesSet = new Set<string>([...FAMOUS_LEAGUES, ...dynamicLeagues]);
+  const allLeagues = Array.from(allLeaguesSet).sort((a, b) => a.localeCompare(b, "pt-BR"));
 
   return (
     <aside className="hidden lg:flex flex-col w-[260px] shrink-0 bg-[#121212] border-r border-white/5 h-[calc(100vh-64px)] sticky top-[64px] overflow-hidden">
