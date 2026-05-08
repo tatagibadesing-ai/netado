@@ -122,7 +122,7 @@ function GamesCarousel({ onPlay }: { onPlay: (id: string) => void }) {
                 src={game.img}
                 alt={game.name}
                 className="w-full"
-                style={{ height: "118%", objectFit: "cover", objectPosition: "top" }}
+                style={{ height: "118%", objectFit: "cover", objectPosition: game.id === "quiz" ? "bottom" : "top" }}
               />
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors duration-200 flex items-center justify-center">
                 <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-[#FF3C00] text-white font-semibold text-xs px-4 py-2 rounded-md">
