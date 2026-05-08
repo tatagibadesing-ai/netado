@@ -190,7 +190,7 @@ const VISIBLE    = 3;
 const STRIP_LEN  = 32;
 
 function buildStrip(): SymbolId[] {
-  return Array.from({ length: STRIP_LEN }, () => pickSymbol());
+  return Array.from({ length: STRIP_LEN }, () => pickRandom());
 }
 
 interface ReelProps {
