@@ -27,6 +27,7 @@ interface BetContextType {
   userId: string | null;
   username: string | null;
   isLoggedIn: boolean;
+  isCheckingAuth: boolean;
   login: (userId: string, username: string, balance: number) => void;
   logout: () => void;
   balance: number;
@@ -80,6 +81,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [balance, setBalance] = useState<number>(1000.0);
   const [matches, setMatches] = useState<Match[]>([]);
   const [isLoadingMatches, setIsLoadingMatches] = useState<boolean>(true);
@@ -121,10 +123,14 @@ export function BetProvider({ children }: { children: ReactNode }) {
           } else {
             localStorage.removeItem("netano_user");
           }
+          setIsCheckingAuth(false);
         });
       } catch {
         localStorage.removeItem("netano_user");
+        setIsCheckingAuth(false);
       }
+    } else {
+      setIsCheckingAuth(false);
     }
     fetchMatches();
   }, []);
@@ -279,7 +285,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
   return (
     <BetContext.Provider
       value={{
-        userId, username, isLoggedIn, login, logout,
+        userId, username, isLoggedIn, isCheckingAuth, login, logout,
         balance, matches, isLoadingMatches, betSlip, placedBets,
         selectedLeague, activeTab,
         addToSlip, removeFromSlip, clearSlip, placeBet, resetAll,
