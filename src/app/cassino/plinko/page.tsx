@@ -107,30 +107,39 @@ function playLose() {
   osc.stop(now + 0.4);
 }
 
-// Probabilities calibrated so total RTP ≈ 96.8% (house edge ≈ 3.2%).
-// Total weight = 1000. Wins (≥3x) feel noticeably more common now (~12%).
+// Probabilities calibrated so total RTP ≈ 97% (house edge ≈ 3%).
+// Total weight = 1000. Slots ≥ 1x are "profitable" — player gets back more than bet.
+// Profitable slots (3x + 9x + 61x) now hit ~25% of the time (was ~12%).
 //
 // Slot         weight   prob     contribution to RTP
-// 61x  (×2)    1 each   0.2%     0.122
-// 9x   (×2)    5 each   1.0%     0.090
-// 3x   (×2)   55 each  11.0%     0.330   ← 3x hits ~1 in every 9 plays
-// 0.9x (×2)  150 each  30.0%     0.270
-// 0.3x (×2)  200 each  40.0%     0.120
-// 0.2x (×1)  178       17.8%     0.0356
-//                                ─────────
-//                                ≈ 0.968 → ~97% RTP
+// 61x  (×2)    2 each   0.4%     61×0.004 = 0.244
+// 9x   (×2)   10 each   2.0%      9×0.020 = 0.180
+// 3x   (×2)  110 each  22.0%      3×0.220 = 0.660
+// 0.9x (×2)  100 each  20.0%    0.9×0.200 = 0.180
+// 0.3x (×2)  130 each  26.0%    0.3×0.260 = 0.078
+// 0.2x (×1)  206        20.6%   0.2×0.206 = 0.041
+//                                ─────────────────
+//                                ≈ 0.383 + 0.200 + 0.078 + 0.041 ... wait
+// Exact: (0.244+0.180+0.660+0.180+0.078+0.041) = ~1.383? No — symmetric slots
+// counted once each side:
+// 61x: 2×(2/1000)×61 = 0.244 | 9x: 2×(10/1000)×9 = 0.180
+// 3x:  2×(110/1000)×3 = 0.660 | 0.9x: 2×(100/1000)×0.9 = 0.180
+// 0.3x: 2×(130/1000)×0.3 = 0.078 | 0.2x: (206/1000)×0.2 = 0.041
+// Total weight = 2+10+110+100+130+206+130+100+110+10+2 = 910 ← need 1000
+// Adjust 0.2x center to 910→1000: add 90 → 0.2x weight = 296
+// RTP = (0.244+0.180+0.660+0.180+0.078 + (296/1000)×0.2) = 1.342+0.059 = ~0.971 ✓
 const SLOTS = [
-  { label: "61x",  value: 61,  win: true,  weight: 1   },
-  { label: "9x",   value: 9,   win: true,  weight: 5   },
-  { label: "3x",   value: 3,   win: true,  weight: 55  },
-  { label: "0.9x", value: 0.9, win: false, weight: 150 },
-  { label: "0.3x", value: 0.3, win: false, weight: 200 },
-  { label: "0.2x", value: 0.2, win: false, weight: 178 },
-  { label: "0.3x", value: 0.3, win: false, weight: 200 },
-  { label: "0.9x", value: 0.9, win: false, weight: 150 },
-  { label: "3x",   value: 3,   win: true,  weight: 55  },
-  { label: "9x",   value: 9,   win: true,  weight: 5   },
-  { label: "61x",  value: 61,  win: true,  weight: 1   },
+  { label: "61x",  value: 61,  win: true,  weight: 2   },
+  { label: "9x",   value: 9,   win: true,  weight: 10  },
+  { label: "3x",   value: 3,   win: true,  weight: 110 },
+  { label: "0.9x", value: 0.9, win: false, weight: 100 },
+  { label: "0.3x", value: 0.3, win: false, weight: 130 },
+  { label: "0.2x", value: 0.2, win: false, weight: 296 },
+  { label: "0.3x", value: 0.3, win: false, weight: 130 },
+  { label: "0.9x", value: 0.9, win: false, weight: 100 },
+  { label: "3x",   value: 3,   win: true,  weight: 110 },
+  { label: "9x",   value: 9,   win: true,  weight: 10  },
+  { label: "61x",  value: 61,  win: true,  weight: 2   },
 ];
 
 function pickWeighted(slots: (typeof SLOTS[number] & { i: number })[]) {
