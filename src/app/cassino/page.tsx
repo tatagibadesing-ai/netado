@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -12,7 +12,8 @@ const GAMES = [
   { id: "double", name: "Double", label: "Netano Originals", img: "/doublenetano.webp",      accent: "#FF3C00" },
   { id: "mines",  name: "Mines",  label: "Netano Originals", img: "/minesgamenetado.webp",   accent: "#FF3C00" },
   { id: "dice",   name: "Dice",   label: "Netano Originals", img: "/dicenetano.webp",        accent: "#FF3C00" },
-  { id: "plinko", name: "Plinko", label: "Netano Originals", img: "/plinkogamenetano.webp", accent: "#FF3C00" },
+  { id: "plinko", name: "Plinko", label: "Netano Originals", img: "/plinkogamenetano.webp",  accent: "#FF3C00" },
+  { id: "quiz",   name: "Quiz",   label: "Netano Originals", img: "/quiznetano.webp",        accent: "#FF3C00" },
 ];
 
 /* ── Coming Soon Modal ───────────────────────────────── */
@@ -51,7 +52,6 @@ function ComingSoonModal({ game, onClose }: { game: (typeof GAMES)[0]; onClose: 
 function GamesCarousel({ onPlay }: { onPlay: (id: string) => void }) {
   const [offset, setOffset] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
-  const dragStartX = useRef(0);
   const GAP = 16;
 
   useEffect(() => {
@@ -146,7 +146,7 @@ export default function CassinoPage() {
   const activeGameData = GAMES.find(g => g.id === activeGame);
 
   const handlePlay = (id: string) => {
-    if (id === "crash" || id === "double" || id === "mines" || id === "dice" || id === "plinko") {
+    if (id === "crash" || id === "double" || id === "mines" || id === "dice" || id === "plinko" || id === "quiz") {
       router.push(`/cassino/${id}`);
     } else {
       setActiveGame(id);
