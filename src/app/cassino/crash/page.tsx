@@ -207,7 +207,8 @@ export default function CrashPage() {
   const prevPhase = useRef<CrashPhase>("waiting");
 
   const handleBet = async () => {
-    if (phase !== "waiting" && phase !== "running") return;
+    if (phase !== "waiting") return;
+    if (betActive) return;
     if (betAmount <= 0 || betAmount > balance) return;
     setCashedOut(null);
     setBetActive(true);
@@ -338,8 +339,9 @@ export default function CrashPage() {
           </div>
           <div className="mt-auto flex flex-col gap-2">
             {!betActive ? (
-              <button onClick={handleBet} disabled={betAmount > balance || betAmount <= 0}
-                className="w-full py-3.5 rounded text-white text-sm font-semibold transition-all disabled:opacity-40 active:scale-95"
+              <button onClick={handleBet}
+                disabled={betAmount > balance || betAmount <= 0 || phase === "running"}
+                className="w-full py-3.5 rounded text-white text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
                 style={{ background: "#FF3C00" }}>
                 {phase === "running" ? "Aguarde próxima rodada" : "Começar o jogo"}
               </button>
@@ -350,7 +352,7 @@ export default function CrashPage() {
                 Retirar {multiplier.toFixed(2)}x
               </button>
             ) : (
-              <button disabled className="w-full py-3.5 rounded text-white/40 text-sm font-medium bg-[#1a1a1a]">
+              <button disabled className="w-full py-3.5 rounded text-white/40 text-sm font-medium bg-[#1a1a1a] cursor-not-allowed">
                 Aguardando...
               </button>
             )}
@@ -369,7 +371,7 @@ export default function CrashPage() {
 
         {/* Right: chart + history (desktop) / chart only (mobile) */}
         <div className="flex-1 flex flex-col bg-[#0d0d0d] min-w-0 min-h-[260px]">
-          <div className="flex-1 relative">
+          <div className="flex-1 relative select-none" style={{ pointerEvents: "none" }}>
             <CrashChart phase={phase} multiplier={multiplier} />
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               {phase === "waiting" && (
@@ -447,8 +449,9 @@ export default function CrashPage() {
           </div>
           <div className="flex flex-col gap-2">
             {!betActive ? (
-              <button onClick={handleBet} disabled={betAmount > balance || betAmount <= 0}
-                className="w-full py-3 rounded text-white text-sm font-semibold transition-all disabled:opacity-40 active:scale-95"
+              <button onClick={handleBet}
+                disabled={betAmount > balance || betAmount <= 0 || phase === "running"}
+                className="w-full py-3 rounded text-white text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
                 style={{ background: "#FF3C00" }}>
                 {phase === "running" ? "Aguarde próxima rodada" : "Começar o jogo"}
               </button>
@@ -459,7 +462,7 @@ export default function CrashPage() {
                 Retirar {multiplier.toFixed(2)}x
               </button>
             ) : (
-              <button disabled className="w-full py-3 rounded text-white/40 text-sm font-medium bg-[#1a1a1a]">
+              <button disabled className="w-full py-3 rounded text-white/40 text-sm font-medium bg-[#1a1a1a] cursor-not-allowed">
                 Aguardando...
               </button>
             )}
