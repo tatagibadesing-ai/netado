@@ -107,39 +107,63 @@ function playLose() {
   osc.stop(now + 0.4);
 }
 
-// Probabilities calibrated so total RTP ≈ 97% (house edge ≈ 3%).
-// Total weight = 1000. Slots ≥ 1x are "profitable" — player gets back more than bet.
-// Profitable slots (3x + 9x + 61x) now hit ~25% of the time (was ~12%).
+// 50/50 design: exactly 50% of weight lands on profitable slots (value > 1x).
+// RTP ≈ 97% (house edge 3%). Total weight = 1000.
 //
-// Slot         weight   prob     contribution to RTP
-// 61x  (×2)    2 each   0.4%     61×0.004 = 0.244
-// 9x   (×2)   10 each   2.0%      9×0.020 = 0.180
-// 3x   (×2)  110 each  22.0%      3×0.220 = 0.660
-// 0.9x (×2)  100 each  20.0%    0.9×0.200 = 0.180
-// 0.3x (×2)  130 each  26.0%    0.3×0.260 = 0.078
-// 0.2x (×1)  206        20.6%   0.2×0.206 = 0.041
-//                                ─────────────────
-//                                ≈ 0.383 + 0.200 + 0.078 + 0.041 ... wait
-// Exact: (0.244+0.180+0.660+0.180+0.078+0.041) = ~1.383? No — symmetric slots
-// counted once each side:
-// 61x: 2×(2/1000)×61 = 0.244 | 9x: 2×(10/1000)×9 = 0.180
-// 3x:  2×(110/1000)×3 = 0.660 | 0.9x: 2×(100/1000)×0.9 = 0.180
-// 0.3x: 2×(130/1000)×0.3 = 0.078 | 0.2x: (206/1000)×0.2 = 0.041
-// Total weight = 2+10+110+100+130+206+130+100+110+10+2 = 910 ← need 1000
-// Adjust 0.2x center to 910→1000: add 90 → 0.2x weight = 296
-// RTP = (0.244+0.180+0.660+0.180+0.078 + (296/1000)×0.2) = 1.342+0.059 = ~0.971 ✓
+// Layout (11 slots, symmetric):
+//   50x  | 10x | 3x  | 1.5x | 0x  | [center] | 0x  | 1.5x | 3x  | 10x | 50x
+//
+// Profitable (>1x): 50x×2 + 10x×2 + 3x×2 + 1.5x×2 = weight 500 total → 50%
+// Loss (0x):        0x×2 + center = weight 500 total → 50%
+//
+// Weight breakdown:
+//   50x  (×2):   3 each  →   6   prob 0.6%   contrib: 50×0.006 = 0.300
+//   10x  (×2):  12 each  →  24   prob 2.4%   contrib: 10×0.024 = 0.240
+//    3x  (×2):  85 each  → 170   prob 17.0%  contrib:  3×0.170 = 0.510
+//  1.5x  (×2): 150 each  → 300   prob 30.0%  contrib:  1.5×0.300 = 0.450
+//    0x  (×2): 175 each  → 350   prob 35.0%  contrib:  0
+//    0x  (×1): 150        → 150   prob 15.0%  contrib:  0
+//                                  ──────────────────────────
+// Total weight: 6+24+170+300+350+150 = 1000 ✓
+// Profitable weight: 6+24+170+300 = 500 → exactly 50% ✓
+// RTP = 0.300+0.240+0.510+0.450 = 1.500? No — each pair counted once:
+// 50x: (6/1000)×50=0.300 | 10x: (24/1000)×10=0.240
+//  3x: (170/1000)×3=0.510 | 1.5x: (300/1000)×1.5=0.450
+//  0x: 0
+// RTP = 0.300+0.240+0.510+0.450 = 1.500 — too high! Slots already symmetric,
+// no double-count needed. Each weight IS the total across both sides.
+// ✓ RTP = 0.300+0.240+0.510+0.450+0+0 = 1.500 → way too high.
+// Fix: the values shown are multipliers ON THE BET. 50x means player receives
+// 50× bet back. So expected value = sum(prob×value).
+// With 50% profitable and needing EV≈0.97:
+//   avg profitable payout = 0.97/0.50 = 1.94x avg
+// Spread: 1.5x hits most (30%), 3x moderate (17%), 10x rare (2.4%), 50x ultra (0.6%)
+// Weighted avg of profitable = (0.300×1.5 + 0.170×3 + 0.024×10 + 0.006×50) / 0.500
+//                            = (0.450+0.510+0.240+0.300) / 0.500
+//                            = 1.500 / 0.500 = 3.0x avg payout on wins
+// EV = 0.50 × 3.0 = 1.50 → RTP 150%! House loses money. Need to scale down.
+//
+// To hit RTP 97% with 50/50: avg winning payout = 0.97/0.50 = 1.94x
+// Use: 1.2x (hits most), 2x, 5x, 20x — keeping 50% weight.
+//   20x (×2):   3 each →   6   prob 0.6%   contrib: 20×0.006 = 0.120
+//    5x (×2):  12 each →  24   prob 2.4%   contrib:  5×0.024 = 0.120
+//    2x (×2):  85 each → 170   prob 17.0%  contrib:  2×0.170 = 0.340
+//  1.2x (×2): 150 each → 300   prob 30.0%  contrib:  1.2×0.300 = 0.360
+//    0x  lose : 500           → 50% loss   contrib: 0
+// RTP = 0.120+0.120+0.340+0.360 = 0.940 → 94% ✓ close enough, tweak 1.2x→1.3x
+//   1.3x: 1.3×0.300 = 0.390 → RTP = 0.120+0.120+0.340+0.390 = 0.970 ✓ 97% RTP
 const SLOTS = [
-  { label: "61x",  value: 61,  win: true,  weight: 2   },
-  { label: "9x",   value: 9,   win: true,  weight: 10  },
-  { label: "3x",   value: 3,   win: true,  weight: 110 },
-  { label: "0.9x", value: 0.9, win: false, weight: 100 },
-  { label: "0.3x", value: 0.3, win: false, weight: 130 },
-  { label: "0.2x", value: 0.2, win: false, weight: 296 },
-  { label: "0.3x", value: 0.3, win: false, weight: 130 },
-  { label: "0.9x", value: 0.9, win: false, weight: 100 },
-  { label: "3x",   value: 3,   win: true,  weight: 110 },
-  { label: "9x",   value: 9,   win: true,  weight: 10  },
-  { label: "61x",  value: 61,  win: true,  weight: 2   },
+  { label: "20x",  value: 20,  win: true,  weight: 3   },
+  { label: "5x",   value: 5,   win: true,  weight: 12  },
+  { label: "2x",   value: 2,   win: true,  weight: 85  },
+  { label: "1.3x", value: 1.3, win: true,  weight: 150 },
+  { label: "0x",   value: 0,   win: false, weight: 175 },
+  { label: "0x",   value: 0,   win: false, weight: 150 },
+  { label: "0x",   value: 0,   win: false, weight: 175 },
+  { label: "1.3x", value: 1.3, win: true,  weight: 150 },
+  { label: "2x",   value: 2,   win: true,  weight: 85  },
+  { label: "5x",   value: 5,   win: true,  weight: 12  },
+  { label: "20x",  value: 20,  win: true,  weight: 3   },
 ];
 
 function pickWeighted(slots: (typeof SLOTS[number] & { i: number })[]) {
@@ -697,7 +721,7 @@ export default function PlinkoPage() {
             >
               {won
                 ? `Ganhou +R$ ${(lastResult.bet * SLOTS[lastResult.slot].value - lastResult.bet).toFixed(2)}`
-                : `Retornou R$ ${(lastResult.bet * SLOTS[lastResult.slot].value).toFixed(2)}`}
+                : `Perdeu R$ ${lastResult.bet.toFixed(2)}`}
             </motion.p>
           )}
         </AnimatePresence>
