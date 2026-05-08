@@ -63,12 +63,12 @@ function MineSelect({ value, onChange, disabled }: {
       <AnimatePresence>
         {open && (
           <motion.ul
-            initial={{ opacity: 0, y: -6, scaleY: 0.92 }}
+            initial={{ opacity: 0, y: 6, scaleY: 0.92 }}
             animate={{ opacity: 1, y: 0, scaleY: 1 }}
-            exit={{ opacity: 0, y: -4, scaleY: 0.95 }}
+            exit={{ opacity: 0, y: 4, scaleY: 0.95 }}
             transition={{ duration: 0.15 }}
-            style={{ transformOrigin: "top" }}
-            className="absolute z-50 left-0 right-0 mt-1 bg-[#1a1a1a] rounded-lg overflow-hidden shadow-xl border border-white/5"
+            style={{ transformOrigin: "bottom", maxHeight: "220px" }}
+            className="absolute z-[200] left-0 right-0 bottom-full mb-1 bg-[#1a1a1a] rounded-lg shadow-xl border border-white/5 overflow-y-auto"
           >
             {MINE_OPTIONS.map(n => (
               <motion.li
@@ -369,7 +369,7 @@ export default function MinesPage() {
         </div>
 
         {/* Bottom panel — mobile only */}
-        <div className="md:hidden bg-[#111] flex flex-col gap-3 p-4 border-t border-white/5">
+        <div className="md:hidden bg-[#111] flex flex-col gap-3 p-4 border-t border-white/5 overflow-visible">
           <div className="flex bg-[#0d0d0d] rounded p-1 gap-1">
             {(["normal", "auto"] as const).map(m => (
               <button key={m} onClick={() => setMode(m)}
