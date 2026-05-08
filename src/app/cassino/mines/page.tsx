@@ -181,7 +181,6 @@ export default function MinesPage() {
     gameCountRef.current = stored ? parseInt(stored, 10) : 0;
   }, [userId]);
   const [currentMult, setCurrentMult] = useState(1);
-  const [mode, setMode] = useState<"normal" | "auto">("normal");
 
   const safeCells = GRID - mineCount;
 
@@ -318,16 +317,6 @@ export default function MinesPage() {
 
         {/* Left panel — desktop only */}
         <div className="hidden md:flex w-[260px] shrink-0 bg-[#111] flex-col p-4 gap-4">
-          <div className="flex bg-[#0d0d0d] rounded p-1 gap-1">
-            {(["normal", "auto"] as const).map(m => (
-              <button key={m} onClick={() => setMode(m)}
-                className={`flex-1 py-2 rounded-sm text-sm transition-all ${
-                  mode === m ? "bg-[#2a2a2a] text-white font-semibold" : "text-white/40 hover:text-white/70 font-medium"
-                }`}>
-                {m === "normal" ? "Normal" : "Auto"}
-              </button>
-            ))}
-          </div>
           <div>
             <label className="text-xs text-white/40 font-medium block mb-1.5">Quantia</label>
             <div className="flex items-center gap-2 bg-[#0d0d0d] rounded px-3 py-2.5">
@@ -403,16 +392,6 @@ export default function MinesPage() {
 
         {/* Bottom panel — mobile only */}
         <div className="md:hidden bg-[#111] flex flex-col gap-3 p-4 border-t border-white/5 overflow-visible">
-          <div className="flex bg-[#0d0d0d] rounded p-1 gap-1">
-            {(["normal", "auto"] as const).map(m => (
-              <button key={m} onClick={() => setMode(m)}
-                className={`flex-1 py-2 rounded-sm text-sm transition-all ${
-                  mode === m ? "bg-[#2a2a2a] text-white font-semibold" : "text-white/40 hover:text-white/70 font-medium"
-                }`}>
-                {m === "normal" ? "Normal" : "Auto"}
-              </button>
-            ))}
-          </div>
           <div className="flex gap-2">
             <div className="flex-1">
               <label className="text-xs text-white/40 font-medium block mb-1.5">Quantia</label>
