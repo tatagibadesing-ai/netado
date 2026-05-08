@@ -156,18 +156,22 @@ function playLose() {
 // 20x weight raised 20% per side: 3 → 4 (each side). Center 0x -2 to keep total=1000.
 // Profitable: 4+12+85+160+160+85+12+4 = 522 | Loss: 160+160+158 = 478 | Total = 1000 ✓
 const SLOTS = [
-  { label: "20x",  value: 20,  win: true,  weight: 4   },
+  { label: "20x",  value: 20,  win: true,  weight: 5   },
   { label: "5x",   value: 5,   win: true,  weight: 12  },
   { label: "2x",   value: 2,   win: true,  weight: 85  },
-  { label: "1.3x", value: 1.3, win: true,  weight: 160 },
+  { label: "1.2x", value: 1.2, win: true,  weight: 160 },
   { label: "0x",   value: 0,   win: false, weight: 160 },
-  { label: "0x",   value: 0,   win: false, weight: 158 },
+  { label: "0x",   value: 0,   win: false, weight: 156 },
   { label: "0x",   value: 0,   win: false, weight: 160 },
-  { label: "1.3x", value: 1.3, win: true,  weight: 160 },
+  { label: "1.2x", value: 1.2, win: true,  weight: 160 },
   { label: "2x",   value: 2,   win: true,  weight: 85  },
   { label: "5x",   value: 5,   win: true,  weight: 12  },
-  { label: "20x",  value: 20,  win: true,  weight: 4   },
+  { label: "20x",  value: 20,  win: true,  weight: 5   },
 ];
+
+// Pesos de boas-vindas (primeiras 20 bolinhas) — RTP ~140% só por mais frequência nos slots premiados
+// Valores idênticos, só os pesos mudam (jogador não vê diferença, só "tem sorte")
+const WELCOME_WEIGHTS = [10, 16, 105, 174, 130, 130, 130, 174, 105, 16, 10];
 
 function pickWeighted(slots: (typeof SLOTS[number] & { i: number })[]) {
   const total = slots.reduce((s, slot) => s + slot.weight, 0);
@@ -637,7 +641,13 @@ export default function PlinkoPage() {
   // Allow multiple balls in flight at once. Use a ref-tracked local balance
   // so rapid-fire clicks all see the up-to-date value before React re-renders.
   const balanceRef = useRef(balance);
+  const ballCountRef = useRef(0);
   useEffect(() => { balanceRef.current = balance; }, [balance]);
+  useEffect(() => {
+    if (!userId) return;
+    const stored = localStorage.getItem(`plinko_ball_count_${userId}`);
+    ballCountRef.current = stored ? parseInt(stored, 10) : 0;
+  }, [userId]);
 
   const play = async () => {
     if (betAmount <= 0 || betAmount > balanceRef.current) return;
@@ -648,8 +658,16 @@ export default function PlinkoPage() {
     const { supabase } = await import("@/lib/supabase");
     supabase.from("netano_profiles").update({ balance: afterBet }).eq("id", userId).then(() => {});
 
-    const allSlots = SLOTS.map((s, i) => ({ ...s, i }));
+    // Boost de boas-vindas: primeiras 20 bolinhas usam pesos enviesados (RTP ~140%)
+    const isWelcome = ballCountRef.current < 20;
+    const allSlots = SLOTS.map((s, i) => ({
+      ...s,
+      i,
+      weight: isWelcome ? WELCOME_WEIGHTS[i] : s.weight,
+    }));
     const selected = pickWeighted(allSlots);
+    ballCountRef.current += 1;
+    if (userId) localStorage.setItem(`plinko_ball_count_${userId}`, String(ballCountRef.current));
     const sim = simulate(selected);
 
     canvasHandleRef.current?.addBall({

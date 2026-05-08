@@ -45,12 +45,23 @@ export async function GET() {
 
     const allMatches = [];
 
+    const LEAGUE_NAME_MAP: Record<string, string> = {
+      "bra.1": "Brasileirão Série A",
+      "bra.copa_do_brasil": "Copa do Brasil",
+      "conmebol.libertadores": "CONMEBOL Libertadores",
+      "conmebol.sudamericana": "CONMEBOL Sudamericana",
+      "uefa.champions": "UEFA Champions League",
+      "eng.1": "Premier League",
+      "esp.1": "LaLiga",
+    };
+
     for (const url of urls) {
       try {
         const res = await fetch(url, { next: { revalidate: 60 } });
         const data = await res.json();
-        
-        const leagueName = data.leagues?.[0]?.abbreviation || data.leagues?.[0]?.name || "Liga";
+
+        const slug = data.leagues?.[0]?.slug as string | undefined;
+        const leagueName = (slug && LEAGUE_NAME_MAP[slug]) || data.leagues?.[0]?.abbreviation || data.leagues?.[0]?.name || "Liga";
 
         if (data.events) {
           for (const event of data.events) {

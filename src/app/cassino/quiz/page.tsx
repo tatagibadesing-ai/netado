@@ -4,21 +4,56 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useBet } from "@/context/BetContext";
-import { ArrowLeft, Trophy, Clock, Zap, Skull, Sword, Wheat, FlameKindling, Users } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 const ACCENT   = "#FF3C00";
 const PAGE_BG  = "#0d0d0d";
 const PANEL_BG = "#111";
+const GREEN    = "#26890C";
+const ANSWER_COLORS = ["#E21B3C", "#1368CE", "#D89E00", "#26890C"];
+
+let audioCtx: AudioContext | null = null;
+function getAudio(): AudioContext | null {
+  if (typeof window === "undefined") return null;
+  if (!audioCtx) {
+    try {
+      const W = window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext };
+      const Ctor = W.AudioContext ?? W.webkitAudioContext;
+      if (Ctor) audioCtx = new Ctor();
+    } catch { /* ignore */ }
+  }
+  if (audioCtx?.state === "suspended") audioCtx.resume().catch(() => {});
+  return audioCtx;
+}
+
+function playTone(freqs: number[], duration = 0.12, type: OscillatorType = "sine") {
+  const ctx = getAudio();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  freqs.forEach((freq, i) => {
+    const start = now + i * duration * 0.72;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, start);
+    gain.gain.setValueAtTime(0.001, start);
+    gain.gain.exponentialRampToValueAtTime(0.18, start + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(start);
+    osc.stop(start + duration + 0.02);
+  });
+}
+
+function playCorrect() { playTone([660, 880, 1175], 0.11, "triangle"); }
+function playWrong() { playTone([260, 190], 0.16, "sawtooth"); }
+function playTimerWarning() { playTone([760, 760, 760], 0.08, "square"); }
 
 /* ── Perguntas ────────────────────────────────────────── */
 
 interface Question {
   id: number;
-  researcher: string;
   theme: string;
-  themeColor: string;
-  themeBg: string;
-  icon: React.ReactNode;
   question: string;
   options: string[];
   correct: number;
@@ -29,11 +64,7 @@ interface Question {
 const QUESTIONS: Question[] = [
   {
     id: 1,
-    researcher: "Nicolas",
     theme: "Fome e Crise Agrícola",
-    themeColor: "#F59E0B",
-    themeBg: "rgba(245,158,11,0.08)",
-    icon: <Wheat size={18} />,
     question: "A Grande Fome de 1315 foi tão desesperadora que relatos históricos de Bristol documentam algo absolutamente perturbador. O que era esse absurdo?",
     options: [
       "Pessoas vendendo crianças como escravas para comer",
@@ -47,11 +78,7 @@ const QUESTIONS: Question[] = [
   },
   {
     id: 2,
-    researcher: "Davi",
     theme: "Peste Negra",
-    themeColor: "#8B5CF6",
-    themeBg: "rgba(139,92,246,0.08)",
-    icon: <Skull size={18} />,
     question: "A Peste Negra chegou à Europa em outubro de 1347. Em quanto tempo ela devastou ~50% da população europeia (25-30 milhões de pessoas)?",
     options: [
       "6 meses",
@@ -65,11 +92,7 @@ const QUESTIONS: Question[] = [
   },
   {
     id: 3,
-    researcher: "João Francisco",
     theme: "Guerras",
-    themeColor: "#EF4444",
-    themeBg: "rgba(239,68,68,0.08)",
-    icon: <Sword size={18} />,
     question: "Na Batalha de Crécy (1346), os arqueiros ingleses dispararam uma quantidade absurda de flechas. Qual foi o número aproximado registrado nas crônicas?",
     options: [
       "50.000 flechas",
@@ -83,11 +106,7 @@ const QUESTIONS: Question[] = [
   },
   {
     id: 4,
-    researcher: "Nathan",
     theme: "Crise do Feudalismo",
-    themeColor: "#10B981",
-    themeBg: "rgba(16,185,129,0.08)",
-    icon: <FlameKindling size={18} />,
     question: "Após a Peste Negra matar 1/3 da população, algo inédito aconteceu com os salários dos trabalhadores rurais. O que foi?",
     options: [
       "Caíram pela metade — menos boca para se defender",
@@ -101,11 +120,7 @@ const QUESTIONS: Question[] = [
   },
   {
     id: 5,
-    researcher: "Bruno",
     theme: "Revoltas Sociais",
-    themeColor: "#F97316",
-    themeBg: "rgba(249,115,22,0.08)",
-    icon: <Users size={18} />,
     question: "A Jacquerie (1358) começou quando camponeses foram obrigados a fazer algo completamente absurdo. Qual foi o motivo imediato da revolta?",
     options: [
       "Pagar imposto em forma de galinhas vivas",
@@ -119,11 +134,7 @@ const QUESTIONS: Question[] = [
   },
   {
     id: 6,
-    researcher: "Davi",
     theme: "Peste Negra",
-    themeColor: "#8B5CF6",
-    themeBg: "rgba(139,92,246,0.08)",
-    icon: <Skull size={18} />,
     question: "A Islândia perdeu 50–66% da sua população para a Peste Negra. O que torna esse fato especialmente bizarro?",
     options: [
       "A Islândia não tinha médicos, só bardos",
@@ -137,11 +148,7 @@ const QUESTIONS: Question[] = [
   },
   {
     id: 7,
-    researcher: "João Francisco",
     theme: "Guerras",
-    themeColor: "#EF4444",
-    themeBg: "rgba(239,68,68,0.08)",
-    icon: <Sword size={18} />,
     question: "A 'Guerra dos Cem Anos' durou exatamente 100 anos?",
     options: [
       "Sim, exatamente 100 anos de batalhas contínuas",
@@ -155,11 +162,7 @@ const QUESTIONS: Question[] = [
   },
   {
     id: 8,
-    researcher: "Bruno",
     theme: "Revoltas Sociais",
-    themeColor: "#F97316",
-    themeBg: "rgba(249,115,22,0.08)",
-    icon: <Users size={18} />,
     question: "Em 1381, Wat Tyler negociou com o Rei Ricardo II, que tinha apenas 14 anos, e conseguiu acordos históricos. O que aconteceu logo em seguida?",
     options: [
       "Ricardo II cumpriu tudo e aboliu o feudalismo",
@@ -185,35 +188,57 @@ function saveScore(entry: ScoreEntry) {
   localStorage.setItem("quiz_scores", JSON.stringify(scores));
 }
 
+function AnswerSymbol({ index }: { index: number }) {
+  if (index === 0) {
+    return <span className="h-0 w-0 border-x-[18px] border-b-[31px] border-x-transparent border-b-white md:border-x-[24px] md:border-b-[42px]" />;
+  }
+  if (index === 1) {
+    return <span className="h-9 w-9 rotate-45 bg-white md:h-12 md:w-12" />;
+  }
+  if (index === 2) {
+    return <span className="h-10 w-10 rounded-full bg-white md:h-[52px] md:w-[52px]" />;
+  }
+  return <span className="h-10 w-10 bg-white md:h-[52px] md:w-[52px]" />;
+}
+
 /* ── Timer Bar ────────────────────────────────────────── */
-function TimerBar({ duration, onEnd, running }: { duration: number; onEnd: () => void; running: boolean }) {
-  const [left, setLeft] = useState(duration);
-  const ref = useRef<ReturnType<typeof setInterval> | null>(null);
-  const started = useRef(Date.now());
+function TimerBar({
+  duration,
+  onEnd,
+  onWarning,
+  running,
+}: {
+  duration: number;
+  onEnd: () => void;
+  onWarning: () => void;
+  running: boolean;
+}) {
+  const onEndRef = useRef(onEnd);
+  const onWarningRef = useRef(onWarning);
 
   useEffect(() => {
-    if (!running) { setLeft(duration); return; }
-    started.current = Date.now();
-    setLeft(duration);
-    ref.current = setInterval(() => {
-      const elapsed = (Date.now() - started.current) / 1000;
-      const remaining = Math.max(0, duration - elapsed);
-      setLeft(remaining);
-      if (remaining <= 0) { clearInterval(ref.current!); onEnd(); }
-    }, 80);
-    return () => { if (ref.current) clearInterval(ref.current); };
+    onEndRef.current = onEnd;
+    onWarningRef.current = onWarning;
+  }, [onEnd, onWarning]);
+
+  useEffect(() => {
+    if (!running) return;
+    const warning = setTimeout(() => onWarningRef.current(), Math.max(0, duration - 5) * 1000);
+    const timeout = setTimeout(() => onEndRef.current(), duration * 1000);
+    return () => {
+      clearTimeout(warning);
+      clearTimeout(timeout);
+    };
   }, [running, duration]);
 
-  const pct = (left / duration) * 100;
-  const color = pct > 50 ? "#10B981" : pct > 25 ? "#F59E0B" : "#EF4444";
-
   return (
-    <div className="w-full h-2 rounded-full bg-white/5 overflow-hidden">
+    <div className="w-full h-3 rounded-[2px] bg-white/10 overflow-hidden md:h-4">
       <motion.div
-        className="h-full rounded-full transition-colors duration-300"
-        style={{ width: `${pct}%`, background: color }}
-        animate={{ width: `${pct}%` }}
-        transition={{ duration: 0.08 }}
+        key={running ? "running" : "idle"}
+        className="h-full rounded-[1px]"
+        initial={{ width: "100%" }}
+        animate={{ width: running ? "0%" : "100%", backgroundColor: running ? ["#ffffff", "#ffffff", ACCENT] : "#ffffff" }}
+        transition={running ? { duration, ease: "linear", times: [0, 0.75, 1] } : { duration: 0 }}
       />
     </div>
   );
@@ -236,16 +261,18 @@ export default function QuizPage() {
   const [totalLost, setTotalLost] = useState(0);
   const [timeUp, setTimeUp] = useState(false);
   const [timerRunning, setTimerRunning] = useState(false);
-  const [scores, setScores] = useState<ScoreEntry[]>([]);
-  const [balanceAtStart, setBalanceAtStart] = useState(0);
+  const [moneyFlash, setMoneyFlash] = useState<{ id: number; amount: number; won: boolean } | null>(null);
+  const [scores, setScores] = useState<ScoreEntry[]>(() =>
+    typeof window === "undefined" ? [] : getScores()
+  );
+  const flashIdRef = useRef(0);
 
   const q = QUESTIONS[current];
   const TIMER = 20;
 
-  useEffect(() => { setScores(getScores()); }, []);
-
   function startGame() {
     if (betAmount <= 0 || betAmount > balance) return;
+    getAudio();
     setCurrent(0);
     setSelected(null);
     setAnswered(false);
@@ -253,8 +280,8 @@ export default function QuizPage() {
     setTotalWon(0);
     setTotalLost(0);
     setTimeUp(false);
+    setMoneyFlash(null);
     setTimerRunning(true);
-    setBalanceAtStart(balance);
     setPhase("playing");
   }
 
@@ -271,10 +298,14 @@ export default function QuizPage() {
       delta = betAmount * q.multiplier;
       setCorrectCount(c => c + 1);
       setTotalWon(w => w + delta);
+      playCorrect();
     } else {
       delta = -betAmount;
       setTotalLost(l => l + betAmount);
+      playWrong();
     }
+    flashIdRef.current += 1;
+    setMoneyFlash({ id: flashIdRef.current, amount: Math.abs(delta), won: isCorrect });
 
     const newBal = balance + delta;
     if (userId) {
@@ -290,6 +321,9 @@ export default function QuizPage() {
     setAnswered(true);
     setTimerRunning(false);
     setTotalLost(l => l + betAmount);
+    flashIdRef.current += 1;
+    setMoneyFlash({ id: flashIdRef.current, amount: betAmount, won: false });
+    playWrong();
     const newBal = balance - betAmount;
     if (userId) {
       login(userId, username!, newBal);
@@ -299,12 +333,16 @@ export default function QuizPage() {
     }
   }
 
+  function handleTimerWarning() {
+    if (!answered) playTimerWarning();
+  }
+
   function nextQuestion() {
     if (current + 1 >= QUESTIONS.length) {
       const entry: ScoreEntry = {
         username: username || "Anônimo",
-        score: Math.round(totalWon - totalLost + (correctCount >= 6 ? 500 : 0)),
-        correct: correctCount + (selected === q.correct ? 1 : 0),
+        score: Math.round(totalWon - totalLost),
+        correct: correctCount,
         date: new Date().toLocaleDateString("pt-BR"),
       };
       saveScore(entry);
@@ -315,101 +353,120 @@ export default function QuizPage() {
       setSelected(null);
       setAnswered(false);
       setTimeUp(false);
+      setMoneyFlash(null);
       setTimerRunning(true);
     }
   }
 
-  const finalCorrect = correctCount + (answered && selected === q.correct ? 1 : 0);
+  const finalCorrect = correctCount;
+  const canStart = betAmount > 0 && betAmount <= balance;
+  const totalPotential = betAmount * QUESTIONS.reduce((sum, item) => sum + item.multiplier, 0);
+
+  const renderBetControls = (className = "") => (
+    <div className={`flex flex-col gap-4 ${className}`}>
+      <div>
+        <label className="text-xs text-white/40 font-medium block mb-1.5">Quantia</label>
+        <div className="flex items-center gap-2 bg-[#0d0d0d] rounded px-3 py-2.5">
+          <span className="text-white/40 text-xs font-medium">R$</span>
+          <input
+            type="number"
+            value={betAmount}
+            onChange={e => setBetAmount(Math.max(1, Number(e.target.value)))}
+            className="flex-1 bg-transparent text-white text-sm font-semibold outline-none w-0"
+          />
+          <div className="flex gap-1">
+            <button
+              onClick={() => setBetAmount(v => Math.max(1, Math.floor(v / 2)))}
+              className="text-xs px-2 py-1 bg-white/5 hover:bg-white/10 text-white/50 rounded font-medium transition-colors"
+            >
+              1/2
+            </button>
+            <button
+              onClick={() => setBetAmount(v => v * 2)}
+              className="text-xs px-2 py-1 bg-white/5 hover:bg-white/10 text-white/50 rounded font-medium transition-colors"
+            >
+              2x
+            </button>
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        <div className="rounded bg-[#0d0d0d] px-3 py-2.5">
+          <p className="text-white/35 font-medium">Perguntas</p>
+          <p className="text-white font-semibold mt-1">{QUESTIONS.length}</p>
+        </div>
+        <div className="rounded bg-[#0d0d0d] px-3 py-2.5">
+          <p className="text-white/35 font-medium">Tempo</p>
+          <p className="text-white font-semibold mt-1">{TIMER}s</p>
+        </div>
+      </div>
+      <div className="rounded bg-[#0d0d0d] px-3 py-2.5">
+        <div className="flex items-center justify-between text-xs font-medium">
+          <span className="text-white/35">Retorno máximo</span>
+          <span className="text-white">R$ {totalPotential.toFixed(2)}</span>
+        </div>
+      </div>
+      <button
+        onClick={startGame}
+        disabled={!canStart}
+        className="w-full py-3.5 rounded text-white text-sm font-semibold transition-all disabled:opacity-40 active:scale-95"
+        style={{ background: ACCENT }}
+      >
+        Começar o jogo
+      </button>
+      <button
+        onClick={() => setPhase("ranking")}
+        className="w-full py-3 rounded bg-[#0d0d0d] text-white/50 hover:text-white text-sm font-semibold transition-colors"
+      >
+        Ranking
+      </button>
+      <div className="flex justify-between text-xs text-white/30 font-medium pt-1">
+        <span>Saldo</span>
+        <span className="text-white/50">R$ {balance.toFixed(2)}</span>
+      </div>
+    </div>
+  );
 
   /* ── Lobby ── */
   if (phase === "lobby") return (
-    <div className="flex-1 flex flex-col min-h-0" style={{ background: PAGE_BG }}>
+    <div className="flex-1 flex flex-col bg-[#0d0d0d] min-h-0">
       <div className="flex items-center justify-between px-6 py-3 bg-[#111]">
-        <button onClick={() => router.push("/cassino")}
-          className="flex items-center gap-1.5 text-white/50 hover:text-white transition-colors text-sm font-medium">
-          <ArrowLeft size={16} /> Cassino
-        </button>
+        <div className="flex items-center gap-3">
+          <button onClick={() => router.push("/cassino")}
+            className="flex items-center gap-1.5 text-white/50 hover:text-white transition-colors text-sm font-medium">
+            <ArrowLeft size={16} /> Cassino
+          </button>
+          <span className="text-white/20">/</span>
+          <span className="text-white text-sm font-semibold">Quiz</span>
+        </div>
         <span className="text-white/40 text-xs font-medium">Netano Originals</span>
       </div>
 
-      <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center px-4 py-8 gap-6">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md flex flex-col gap-5">
+      <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
+        <div className="hidden md:flex w-[300px] shrink-0 bg-[#111] flex-col p-5">
+          {renderBetControls()}
+        </div>
 
-          {/* Header */}
-          <div className="text-center">
-            <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center text-3xl"
-              style={{ background: "rgba(255,60,0,0.15)", border: "1px solid rgba(255,60,0,0.3)" }}>
-              🏰
-            </div>
-            <h1 className="text-white text-2xl font-bold mb-1">Quiz da Crise Medieval</h1>
-            <p className="text-white/40 text-sm">Século XIV — Fome, Peste e Guerra</p>
-          </div>
-
-          {/* Info cards */}
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { icon: "📋", label: "8 perguntas", sub: "temáticas" },
-              { icon: "⏱️", label: "20 seg", sub: "por pergunta" },
-              { icon: "💰", label: "Até 2.5x", sub: "por acerto" },
-            ].map(c => (
-              <div key={c.label} className="rounded-xl p-3 text-center" style={{ background: PANEL_BG }}>
-                <div className="text-2xl mb-1">{c.icon}</div>
-                <p className="text-white text-xs font-bold">{c.label}</p>
-                <p className="text-white/30 text-[10px]">{c.sub}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Pesquisadores */}
-          <div className="rounded-xl p-4 flex flex-col gap-2" style={{ background: PANEL_BG }}>
-            <p className="text-white/40 text-xs font-semibold uppercase tracking-wide mb-1">Pesquisadores</p>
-            {[
-              { name: "Nicolas", topic: "Fome e Crise Agrícola", color: "#F59E0B" },
-              { name: "Davi", topic: "Peste Negra", color: "#8B5CF6" },
-              { name: "João Francisco", topic: "Guerras", color: "#EF4444" },
-              { name: "Nathan", topic: "Crise no Feudalismo", color: "#10B981" },
-              { name: "Bruno", topic: "Revoltas Sociais", color: "#F97316" },
-            ].map(r => (
-              <div key={r.name} className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full shrink-0" style={{ background: r.color }} />
-                <span className="text-white text-sm font-semibold">{r.name}</span>
-                <span className="text-white/30 text-xs">— {r.topic}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Aposta */}
-          <div className="rounded-xl p-4 flex flex-col gap-3" style={{ background: PANEL_BG }}>
-            <p className="text-white/40 text-xs font-semibold uppercase tracking-wide">Aposta por pergunta</p>
-            <div className="flex items-center gap-2 rounded-lg px-3 py-2.5" style={{ background: PAGE_BG }}>
-              <span className="text-white/40 text-xs font-medium">R$</span>
-              <input type="number" value={betAmount}
-                onChange={e => setBetAmount(Math.max(1, Number(e.target.value)))}
-                className="flex-1 bg-transparent text-white text-sm font-bold outline-none w-0" />
-              <button onClick={() => setBetAmount(v => Math.max(1, Math.floor(v / 2)))}
-                className="text-xs px-2 py-1 bg-white/5 hover:bg-white/10 text-white/50 rounded font-medium">½</button>
-              <button onClick={() => setBetAmount(v => v * 2)}
-                className="text-xs px-2 py-1 bg-white/5 hover:bg-white/10 text-white/50 rounded font-medium">2x</button>
-            </div>
-            <p className="text-white/30 text-xs text-center">
-              Acertar tudo = até <span className="text-white font-bold">R$ {(betAmount * QUESTIONS.reduce((a, q) => a + q.multiplier, 0)).toFixed(2)}</span> de retorno
+        <div className="flex-1 flex items-center justify-center px-4 py-8 md:p-10">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.18 }}
+            className="w-full max-w-5xl text-center"
+          >
+            <p className="text-white/45 text-sm font-semibold mb-3">Netano Originals</p>
+            <h1 className="text-white text-4xl md:text-7xl font-black leading-none mb-4">
+              Quiz
+            </h1>
+            <p className="text-white/55 text-base md:text-2xl font-medium">
+              Responda rápido, escolha uma cor e avance pergunta por pergunta.
             </p>
-          </div>
+          </motion.div>
+        </div>
 
-          <motion.button whileTap={{ scale: 0.97 }} onClick={startGame}
-            disabled={betAmount > balance || betAmount <= 0}
-            className="w-full py-4 rounded-xl text-white font-bold text-base transition-all disabled:opacity-40"
-            style={{ background: ACCENT }}>
-            Começar o Quiz
-          </motion.button>
-
-          <button onClick={() => setPhase("ranking")}
-            className="w-full py-3 rounded-xl text-white/50 font-semibold text-sm transition-all hover:text-white flex items-center justify-center gap-2"
-            style={{ background: PANEL_BG }}>
-            <Trophy size={15} /> Ver Ranking
-          </button>
-        </motion.div>
+        <div className="md:hidden bg-[#111] flex flex-col gap-3 p-4">
+          {renderBetControls()}
+        </div>
       </div>
     </div>
   );
@@ -428,18 +485,17 @@ export default function QuizPage() {
       <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 max-w-md mx-auto w-full">
         <p className="text-white/40 text-xs font-semibold uppercase tracking-wide">Top 10 — Maiores ganhos</p>
         {scores.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 gap-2">
-            <Trophy size={32} className="text-white/10" />
+          <div className="flex flex-col items-center justify-center py-16 gap-2 rounded bg-[#111]">
+            <p className="text-white/10 text-4xl font-black">0</p>
             <p className="text-white/30 text-sm">Nenhuma partida ainda</p>
           </div>
         )}
         {scores.map((s, i) => {
-          const medals = ["🥇", "🥈", "🥉"];
           return (
-            <div key={i} className="flex items-center gap-3 rounded-xl px-4 py-3"
-              style={{ background: PANEL_BG, border: s.username === username ? `1px solid ${ACCENT}33` : "1px solid transparent" }}>
+            <div key={i} className="flex items-center gap-3 rounded px-4 py-3"
+              style={{ background: s.username === username ? "#161616" : PANEL_BG }}>
               <span className="w-7 text-center text-sm font-bold" style={{ color: i < 3 ? "white" : "rgba(255,255,255,0.3)" }}>
-                {i < 3 ? medals[i] : i + 1}
+                {i + 1}
               </span>
               <div className="flex-1 min-w-0">
                 <p className="text-white text-sm font-semibold truncate">{s.username}</p>
@@ -469,12 +525,17 @@ export default function QuizPage() {
           <span className="text-white/40 text-xs font-medium">Quiz Medieval</span>
         </div>
         <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center px-4 py-8">
-          <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.18 }}
             className="w-full max-w-md flex flex-col gap-5 items-center text-center">
-            <div className="text-7xl">{perfect ? "👑" : finalCorrect >= 6 ? "🏆" : finalCorrect >= 4 ? "⚔️" : "💀"}</div>
+            <div
+              className="w-24 h-24 rounded flex items-center justify-center text-4xl font-black text-white"
+              style={{ background: perfect || finalCorrect >= 6 ? GREEN : finalCorrect >= 4 ? "#D89E00" : "#E21B3C" }}
+            >
+              {finalCorrect}
+            </div>
             <div>
               <h2 className="text-white text-2xl font-bold mb-1">
-                {perfect ? "Perfeito!" : finalCorrect >= 6 ? "Muito bem!" : finalCorrect >= 4 ? "Sobreviveu..." : "A Peste te pegou"}
+                {perfect ? "Perfeito!" : finalCorrect >= 6 ? "Muito bem!" : finalCorrect >= 4 ? "Quase lá" : "Tenta de novo"}
               </h2>
               <p className="text-white/40 text-sm">{finalCorrect} de 8 respostas corretas</p>
             </div>
@@ -495,18 +556,13 @@ export default function QuizPage() {
                   {net >= 0 ? "+" : ""}R$ {net.toFixed(2)}
                 </span>
               </div>
-              {perfect && (
-                <div className="rounded-lg p-3 mt-1" style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.2)" }}>
-                  <p className="text-green-400 text-xs font-semibold">🎉 Bonus de +R$ 500 por acertar tudo!</p>
-                </div>
-              )}
             </div>
 
             <div className="flex gap-3 w-full">
               <button onClick={() => setPhase("ranking")}
-                className="flex-1 py-3 rounded-xl font-semibold text-sm text-white/70 flex items-center justify-center gap-2"
+                className="flex-1 py-3 rounded-xl font-semibold text-sm text-white/70"
                 style={{ background: PANEL_BG }}>
-                <Trophy size={15} /> Ranking
+                Ranking
               </button>
               <motion.button whileTap={{ scale: 0.97 }} onClick={() => setPhase("lobby")}
                 className="flex-1 py-3 rounded-xl font-semibold text-sm text-white"
@@ -522,98 +578,98 @@ export default function QuizPage() {
 
   /* ── Playing ── */
   const isCorrect = selected === q.correct;
-  const isWrong   = selected !== null && selected !== q.correct;
 
   return (
     <div className="flex-1 flex flex-col min-h-0" style={{ background: PAGE_BG }}>
       {/* Topbar */}
       <div className="flex items-center justify-between px-6 py-3 bg-[#111]">
-        <button onClick={() => router.push("/cassino")}
-          className="flex items-center gap-1.5 text-white/50 hover:text-white transition-colors text-sm font-medium">
-          <ArrowLeft size={16} /> Cassino
-        </button>
         <div className="flex items-center gap-3">
-          <span className="text-white/40 text-xs">{current + 1}/8</span>
-          <div className="flex items-center gap-1 text-white/40 text-xs">
-            <Clock size={12} />
-            <span>R$ {betAmount.toFixed(2)}</span>
-          </div>
+          <button onClick={() => router.push("/cassino")}
+            className="flex items-center gap-1.5 text-white/50 hover:text-white transition-colors text-sm font-medium">
+            <ArrowLeft size={16} /> Cassino
+          </button>
+          <span className="text-white/20">/</span>
+          <span className="text-white text-sm font-semibold">Quiz</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-white/40 text-xs">R$ {betAmount.toFixed(2)}</span>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto flex flex-col items-center px-4 py-6 gap-4 max-w-xl mx-auto w-full">
-        {/* Progress dots */}
-        <div className="flex gap-1.5">
-          {QUESTIONS.map((_, i) => (
-            <div key={i} className="w-2 h-2 rounded-full transition-all"
-              style={{
-                background: i < current ? "#10B981" : i === current ? q.themeColor : "rgba(255,255,255,0.1)",
-                transform: i === current ? "scale(1.3)" : "scale(1)",
-              }} />
-          ))}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.18 }}
+        className="relative flex-1 overflow-y-auto flex flex-col items-center px-4 py-5 gap-4 max-w-[1150px] mx-auto w-full md:py-8 md:gap-6"
+      >
+        <div className="flex w-full items-center justify-between gap-4">
+          <p className="text-white/35 text-[11px] font-semibold uppercase tracking-wide md:text-sm">{q.theme}</p>
+          <div className="flex items-center gap-2 text-[11px] font-semibold text-white/35 md:text-sm">
+            <span>{current + 1}</span>
+            <span className="h-1 w-1 rounded-full bg-white/20" />
+            <span>{QUESTIONS.length}</span>
+          </div>
         </div>
-
-        {/* Theme badge */}
-        <AnimatePresence mode="wait">
-          <motion.div key={q.id} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold"
-            style={{ background: q.themeBg, color: q.themeColor, border: `1px solid ${q.themeColor}30` }}>
-            {q.icon}
-            <span>{q.theme}</span>
-            <span className="text-white/30">·</span>
-            <span className="text-white/50">{q.researcher}</span>
-          </motion.div>
-        </AnimatePresence>
 
         {/* Timer */}
         <div className="w-full">
-          <TimerBar duration={TIMER} onEnd={handleTimeUp} running={timerRunning && !answered} />
+          <TimerBar duration={TIMER} onEnd={handleTimeUp} onWarning={handleTimerWarning} running={timerRunning && !answered} />
         </div>
 
-        {/* Multiplier badge */}
-        <div className="flex items-center gap-1.5 text-xs font-bold rounded-lg px-3 py-1.5"
-          style={{ background: "rgba(255,60,0,0.1)", color: ACCENT }}>
-          <Zap size={12} /> Acertar = +R$ {(betAmount * q.multiplier).toFixed(2)} ({q.multiplier}x)
-        </div>
+        <p className="text-white/45 text-xs font-semibold md:text-base">
+          Acertou: +R$ {(betAmount * q.multiplier).toFixed(2)} ({q.multiplier}x)
+        </p>
 
         {/* Question */}
         <AnimatePresence mode="wait">
           <motion.div key={q.id + "-q"}
-            initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
-            className="w-full rounded-2xl p-5 text-center"
-            style={{ background: PANEL_BG, border: `1px solid ${q.themeColor}20` }}>
-            <p className="text-white font-semibold text-base leading-relaxed">{q.question}</p>
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.16 }}
+            className="w-full rounded p-5 md:p-10 text-center"
+            style={{ background: PANEL_BG }}>
+            <p className="text-white font-bold text-lg md:text-[32px] md:leading-tight leading-snug">{q.question}</p>
           </motion.div>
         </AnimatePresence>
 
+        <AnimatePresence>
+          {moneyFlash && (
+            <motion.div
+              key={moneyFlash.id}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.14 }}
+              className="pointer-events-none absolute left-1/2 top-[188px] z-30 -translate-x-1/2 rounded px-6 py-3 text-lg font-black text-white md:top-[246px] md:px-9 md:py-4 md:text-3xl"
+              style={{ background: moneyFlash.won ? GREEN : "#E21B3C" }}
+            >
+              {moneyFlash.won ? "+" : "-"}R$ {moneyFlash.amount.toFixed(2)}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Options */}
-        <div className="w-full flex flex-col gap-2.5">
+        <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
           {q.options.map((opt, i) => {
-            const isSelected = selected === i;
             const showCorrect = answered && i === q.correct;
-            const showWrong = answered && isSelected && i !== q.correct;
+            const showWrong = answered && selected === i && i !== q.correct;
 
-            let bg = "rgba(255,255,255,0.03)";
-            let border = "rgba(255,255,255,0.06)";
-            let textColor = "rgba(255,255,255,0.7)";
+            let bg = ANSWER_COLORS[i];
+            const opacity = answered && !showCorrect && !showWrong ? 0.35 : 1;
 
-            if (showCorrect) { bg = "rgba(16,185,129,0.15)"; border = "#10B981"; textColor = "#10B981"; }
-            else if (showWrong) { bg = "rgba(239,68,68,0.15)"; border = "#EF4444"; textColor = "#EF4444"; }
-            else if (isSelected) { bg = "rgba(255,60,0,0.12)"; border = ACCENT; textColor = "white"; }
+            if (showCorrect) bg = GREEN;
+            else if (showWrong) bg = "#E21B3C";
 
             return (
               <motion.button key={i}
                 whileTap={!answered ? { scale: 0.98 } : {}}
                 onClick={() => handleAnswer(i)}
                 disabled={answered}
-                className="w-full text-left rounded-xl px-4 py-3.5 text-sm font-medium transition-all flex items-start gap-3"
-                style={{ background: bg, border: `1px solid ${border}`, color: textColor }}
+                className="w-full min-h-[96px] text-left rounded px-5 py-4 text-white transition-all flex items-center gap-5 active:scale-[0.99] md:min-h-[125px] md:px-7 md:py-6 md:gap-8"
+                style={{ background: bg, opacity }}
               >
-                <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5"
-                  style={{ background: showCorrect ? "#10B981" : showWrong ? "#EF4444" : "rgba(255,255,255,0.08)" }}>
-                  {String.fromCharCode(65 + i)}
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center md:h-16 md:w-16">
+                  <AnswerSymbol index={i} />
                 </span>
-                <span className="leading-snug">{opt}</span>
+                <span className="leading-snug text-sm md:text-[21px] md:leading-tight font-bold">{opt}</span>
               </motion.button>
             );
           })}
@@ -622,19 +678,18 @@ export default function QuizPage() {
         {/* Feedback */}
         <AnimatePresence>
           {answered && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-              className="w-full rounded-xl p-4"
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.16 }}
+              className="w-full rounded p-4 md:p-5"
               style={{
-                background: timeUp ? "rgba(107,114,128,0.12)" : isCorrect ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)",
-                border: `1px solid ${timeUp ? "rgba(107,114,128,0.2)" : isCorrect ? "rgba(16,185,129,0.25)" : "rgba(239,68,68,0.25)"}`,
+                background: timeUp ? "#161616" : isCorrect ? "rgba(7,227,133,0.13)" : "rgba(226,27,60,0.13)",
               }}>
-              <p className="font-bold text-sm mb-1"
-                style={{ color: timeUp ? "#9CA3AF" : isCorrect ? "#10B981" : "#EF4444" }}>
-                {timeUp ? "⏰ Tempo esgotado! -R$ " + betAmount.toFixed(2)
-                  : isCorrect ? `✅ Correto! +R$ ${(betAmount * q.multiplier).toFixed(2)}`
-                  : `❌ Errado! -R$ ${betAmount.toFixed(2)}`}
+              <p className="font-bold text-sm mb-1 md:text-lg"
+                style={{ color: timeUp ? "#9CA3AF" : isCorrect ? GREEN : "#E21B3C" }}>
+                {timeUp ? "Tempo esgotado! -R$ " + betAmount.toFixed(2)
+                  : isCorrect ? `Correto! +R$ ${(betAmount * q.multiplier).toFixed(2)}`
+                  : `Errado! -R$ ${betAmount.toFixed(2)}`}
               </p>
-              <p className="text-white/50 text-xs leading-relaxed">{q.explanation}</p>
+              <p className="text-white/50 text-xs leading-relaxed md:text-sm">{q.explanation}</p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -642,15 +697,15 @@ export default function QuizPage() {
         {/* Next button */}
         <AnimatePresence>
           {answered && (
-            <motion.button initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+            <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.16 }}
               whileTap={{ scale: 0.97 }} onClick={nextQuestion}
-              className="w-full py-3.5 rounded-xl text-white font-bold text-sm"
-              style={{ background: current + 1 >= QUESTIONS.length ? "#10B981" : ACCENT }}>
-              {current + 1 >= QUESTIONS.length ? "Ver Resultado 🏆" : "Próxima Pergunta →"}
+              className="w-full py-3.5 rounded text-white font-bold text-sm md:py-5 md:text-lg"
+              style={{ background: current + 1 >= QUESTIONS.length ? GREEN : ACCENT }}>
+              {current + 1 >= QUESTIONS.length ? "Ver resultado" : "Próxima pergunta"}
             </motion.button>
           )}
         </AnimatePresence>
-      </div>
+      </motion.div>
     </div>
   );
 }

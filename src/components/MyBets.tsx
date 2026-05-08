@@ -85,16 +85,18 @@ export function MyBets() {
                     const awayTeam = pick.awayTeam || match?.awayTeam || "Time Fora";
                     const homeLogo = pick.homeLogo || match?.homeLogo;
                     const awayLogo = pick.awayLogo || match?.awayLogo;
-                    
+
+                    const hasSnapshot = pick.finalHomeScore !== undefined && pick.finalAwayScore !== undefined;
+                    const displayHomeScore = match?.isFinished ? match.homeScore : (hasSnapshot ? pick.finalHomeScore : undefined);
+                    const displayAwayScore = match?.isFinished ? match.awayScore : (hasSnapshot ? pick.finalAwayScore : undefined);
+                    const showScore = displayHomeScore !== undefined && displayAwayScore !== undefined;
+
                     let pickResult: boolean | null = null;
+                    const { isPickWon } = require("../context/BetContext");
                     if (match) {
-                      // Se a partida foi encontrada, checamos o status da aposta individual
-                      // Importante usar a função isPickWon exportada do BetContext
-                      // Como não importamos diretamente aqui, vamos checar manualmente ou via context se possível, mas como a função isPickWon foi exportada de BetContext.tsx:
-                      const { isPickWon } = require("../context/BetContext");
                       pickResult = isPickWon(pick, match);
-                    } else if (bet.status === "lost") {
-                      // Fallback: se a partida não foi encontrada e a aposta geral está perdida, não sabemos qual pick falhou exatamente
+                    } else if (hasSnapshot) {
+                      pickResult = isPickWon(pick, { isFinished: true, homeScore: pick.finalHomeScore, awayScore: pick.finalAwayScore } as any);
                     }
 
                     return (
@@ -126,9 +128,9 @@ export function MyBets() {
                           </div>
 
                           {/* Placar Final */}
-                          {match?.isFinished && (
+                          {showScore && (
                             <div className="bg-[#1a1a1a] px-2 py-0.5 rounded font-bold text-sm text-[#FF3C00]">
-                              {match.homeScore} - {match.awayScore}
+                              {displayHomeScore} - {displayAwayScore}
                             </div>
                           )}
                         </div>
@@ -143,7 +145,7 @@ export function MyBets() {
                           <div className="flex items-center gap-4">
                             {pickResult === true && <span className="text-xs font-bold text-green-500 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> ACERTOU</span>}
                             {pickResult === false && <span className="text-xs font-bold text-red-500 flex items-center gap-1"><XCircle className="w-3 h-3" /> ERROU</span>}
-                            {pickResult === null && match?.isFinished === false && <span className="text-xs font-bold text-slate-500">PENDENTE</span>}
+                            {pickResult === null && bet.status === "pending" && <span className="text-xs font-bold text-slate-500">PENDENTE</span>}
                             
                             <span className="font-black text-[#FF3C00] text-lg bg-[#080808] px-2 py-0.5 rounded">
                               {pick.oddValue.toFixed(2)}

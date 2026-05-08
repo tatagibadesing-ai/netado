@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useBet } from "@/context/BetContext";
 import { ArrowLeft, ChevronDown, Gem, Bomb } from "lucide-react";
+import { playBetPlaced, playCashout, playExplosion, playReveal, playWin } from "@/lib/sfx";
 
 /* ── Constants ───────────────────────────────────────── */
 
@@ -13,16 +14,14 @@ const GRID = 25; // 5x5
 type CellState = "hidden" | "diamond" | "mine" | "mine-safe";
 type GamePhase = "idle" | "playing" | "won" | "dead";
 
-/* ── Multiplier table (provably fair, sem edge) ──────── */
-// Multiplicador cresce com cada diamante revelado baseado na prob de sobrevivência
+/* ── Multiplier table (RTP 110%) ─────────────────────── */
+// Multiplicador = 1.10 / P(sobreviver) — jogador tem 10% de vantagem
 function calcMultiplier(mines: number, revealed: number): number {
-  // P(sobreviver até agora) = produto de (GRID - mines - i) / (GRID - i) para i=0..revealed-1
-  // Multiplicador = 1 / P = inverso da probabilidade acumulada
   let prob = 1;
   for (let i = 0; i < revealed; i++) {
     prob *= (GRID - mines - i) / (GRID - i);
   }
-  return prob > 0 ? Math.round((0.97 / prob) * 100) / 100 : 1;
+  return prob > 0 ? Math.round((1.10 / prob) * 100) / 100 : 1;
 }
 
 
@@ -174,6 +173,13 @@ export default function MinesPage() {
   const [cells, setCells] = useState<CellState[]>(Array(GRID).fill("hidden"));
   const [minePositions, setMinePositions] = useState<Set<number>>(new Set());
   const [revealed, setRevealed] = useState(0);
+  const gameCountRef = useRef(0);
+  const isWelcomeGameRef = useRef(false);
+  useEffect(() => {
+    if (!userId) return;
+    const stored = localStorage.getItem(`mines_game_count_${userId}`);
+    gameCountRef.current = stored ? parseInt(stored, 10) : 0;
+  }, [userId]);
   const [currentMult, setCurrentMult] = useState(1);
   const [mode, setMode] = useState<"normal" | "auto">("normal");
 
@@ -194,31 +200,56 @@ export default function MinesPage() {
       mines.add(Math.floor(Math.random() * GRID));
     }
 
+    // Marca esta partida como welcome (8 primeiras partidas) — primeira célula clicada será segura
+    isWelcomeGameRef.current = gameCountRef.current < 8;
+    gameCountRef.current += 1;
+    if (userId) localStorage.setItem(`mines_game_count_${userId}`, String(gameCountRef.current));
+
     setMinePositions(mines);
     setCells(Array(GRID).fill("hidden"));
     setRevealed(0);
     setCurrentMult(calcMultiplier(mineCount, 0));
     setPhase("playing");
+    playBetPlaced();
   };
 
   const revealCell = (index: number) => {
     if (phase !== "playing" || cells[index] !== "hidden") return;
 
-    const isMine = minePositions.has(index);
+    let mineSet = minePositions;
+    // Welcome: primeira célula clicada da partida sempre é diamante.
+    // Se calhou de ter mina, move ela para outra célula livre.
+    if (isWelcomeGameRef.current && revealed === 0 && mineSet.has(index)) {
+      const newMines = new Set(mineSet);
+      newMines.delete(index);
+      // achar célula livre (não selecionada e não mina)
+      const candidates: number[] = [];
+      for (let i = 0; i < GRID; i++) {
+        if (i !== index && !newMines.has(i)) candidates.push(i);
+      }
+      const target = candidates[Math.floor(Math.random() * candidates.length)];
+      newMines.add(target);
+      mineSet = newMines;
+      setMinePositions(newMines);
+    }
+
+    const isMine = mineSet.has(index);
     const newCells = [...cells];
 
     if (isMine) {
       // Revela todas as minas
       newCells[index] = "mine";
-      minePositions.forEach(pos => { if (pos !== index) newCells[pos] = "mine"; });
+      mineSet.forEach(pos => { if (pos !== index) newCells[pos] = "mine"; });
       setCells(newCells);
       setPhase("dead");
+      playExplosion();
     } else {
       newCells[index] = "diamond";
       const newRevealed = revealed + 1;
       setCells(newCells);
       setRevealed(newRevealed);
       setCurrentMult(calcMultiplier(mineCount, newRevealed));
+      playReveal();
 
       // Auto-ganhou se revelou todos os seguros
       if (newRevealed === safeCells) {
@@ -245,6 +276,8 @@ export default function MinesPage() {
     });
 
     setPhase("won");
+    playCashout();
+    setTimeout(() => playWin(), 150);
     login(userId!, username!, newBalance);
     const { supabase } = await import("@/lib/supabase");
     await supabase.from("netano_profiles").update({ balance: newBalance }).eq("id", userId);

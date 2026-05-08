@@ -12,6 +12,9 @@ export interface SlipItem {
   awayTeam?: string;
   homeLogo?: string;
   awayLogo?: string;
+  finalHomeScore?: number;
+  finalAwayScore?: number;
+  resolvedAt?: string;
 }
 
 export interface PlacedBet {
@@ -176,8 +179,15 @@ export function BetProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!userId || matches.length === 0 || placedBets.length === 0) return;
 
-    const toUpdate: { id: string; status: "won" | "lost" }[] = [];
+    const toUpdate: { id: string; status: "won" | "lost"; picks: SlipItem[] }[] = [];
     let balanceDelta = 0;
+
+    const enrichPickWithScore = (pick: SlipItem, match: Match): SlipItem => ({
+      ...pick,
+      finalHomeScore: match.homeScore ?? 0,
+      finalAwayScore: match.awayScore ?? 0,
+      resolvedAt: pick.resolvedAt ?? new Date().toISOString(),
+    });
 
     const updated = placedBets.map((bet) => {
       if (bet.status !== "pending") return bet;
@@ -186,27 +196,49 @@ export function BetProvider({ children }: { children: ReactNode }) {
 
       for (const pick of bet.picks) {
         const match = matches.find(m => m.id === pick.matchId);
-        if (!match) { isPending = true; continue; }
+        if (!match) {
+          // No live data for this match. If we already snapshotted a final score,
+          // re-evaluate from the snapshot so a finished bet never reverts to pending.
+          if (pick.finalHomeScore !== undefined && pick.finalAwayScore !== undefined) {
+            const snapMatch: Match = { ...(matches[0] ?? ({} as Match)), id: pick.matchId, isFinished: true, homeScore: pick.finalHomeScore, awayScore: pick.finalAwayScore } as Match;
+            const r = isPickWon(pick, snapMatch);
+            if (r === null) isPending = true;
+            else if (r === false) { hasLostPick = true; break; }
+            continue;
+          }
+          isPending = true;
+          continue;
+        }
         const result = isPickWon(pick, match);
         if (result === null) isPending = true;
         else if (result === false) { hasLostPick = true; break; }
       }
 
       if (hasLostPick) {
-        toUpdate.push({ id: bet.id, status: "lost" });
-        return { ...bet, status: "lost" as const };
+        const snapshotPicks = bet.picks.map(p => {
+          const m = matches.find(mm => mm.id === p.matchId);
+          return m && m.isFinished ? enrichPickWithScore(p, m) : p;
+        });
+        toUpdate.push({ id: bet.id, status: "lost", picks: snapshotPicks });
+        return { ...bet, picks: snapshotPicks, status: "lost" as const };
       }
       if (!isPending) {
-        toUpdate.push({ id: bet.id, status: "won" });
+        const snapshotPicks = bet.picks.map(p => {
+          const m = matches.find(mm => mm.id === p.matchId);
+          return m && m.isFinished ? enrichPickWithScore(p, m) : p;
+        });
+        toUpdate.push({ id: bet.id, status: "won", picks: snapshotPicks });
         balanceDelta += bet.potentialReturn;
-        return { ...bet, status: "won" as const };
+        return { ...bet, picks: snapshotPicks, status: "won" as const };
       }
       return bet;
     });
 
     if (toUpdate.length === 0) return;
     setPlacedBets(updated);
-    toUpdate.forEach(({ id, status }) => supabase.from("netano_bets").update({ status }).eq("id", id));
+    toUpdate.forEach(({ id, status, picks }) =>
+      supabase.from("netano_bets").update({ status, picks }).eq("id", id)
+    );
     if (balanceDelta > 0) {
       const newBalance = balance + balanceDelta;
       setBalance(newBalance);
