@@ -45,7 +45,7 @@ function DiceBackdrop() {
 }
 
 function calcMultiplier(winChance: number): number {
-  return Math.round((97 / winChance) * 100) / 100;
+  return Math.round((100 / winChance) * 100) / 100;
 }
 
 function DiceSlider({
