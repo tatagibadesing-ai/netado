@@ -85,7 +85,7 @@ function GamesCarousel({ onPlay }: { onPlay: (id: string) => void }) {
   return (
     <div>
       <div className="flex items-center gap-4 mb-4">
-        <h2 className="text-white text-2xl tracking-wide" style={{ fontWeight: 600 }}>Originais</h2>
+        <h2 className="text-white text-2xl tracking-wide" style={{ fontWeight: 700 }}>Originais</h2>
         <div className="flex items-center gap-1">
           <button onClick={prev} disabled={offset === 0}
             className="w-7 h-7 rounded-full bg-[#1a1a1a] hover:bg-[#252525] disabled:opacity-30 flex items-center justify-center text-white transition-all">
@@ -162,22 +162,22 @@ export default function CassinoPage() {
   return (
     <>
       <main className="flex-1 w-full bg-[#0d0d0d] flex flex-col">
-        <div className="max-w-[1400px] mx-auto w-full p-4 lg:p-8 flex flex-col gap-6">
+        <div className="max-w-[1400px] mx-auto w-full p-4 lg:px-8 lg:pt-8 lg:pb-8 flex flex-col gap-6">
 
           {/* Banner */}
-          <div className="relative w-full rounded-2xl overflow-hidden" style={{ maxHeight: "220px" }}>
+          <div className="relative w-full rounded-2xl overflow-hidden max-h-[220px] md:max-h-[260px]">
             <img
               src="/bannercassino.webp"
               alt="Cassino Netano"
-              className="w-full h-full object-cover object-center"
+              className="w-full h-full object-cover scale-[1.45] md:scale-100 origin-left md:origin-center object-[0%_45%] md:object-[center_45%] -translate-x-[11%] md:translate-x-0"
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-black/10 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-black/5 to-transparent" />
             <div className="absolute inset-0 flex flex-col justify-center px-4 md:px-12">
-              <p className="text-white/70 text-xs md:text-sm font-medium tracking-wide mb-1">Originais Netano</p>
-              <h2 className="text-white text-2xl md:text-4xl leading-tight mb-2" style={{ fontWeight: 600 }}>
+              <p className="text-white/70 text-xs md:text-sm font-semibold tracking-wide mb-1">Originais Netano</p>
+              <h2 className="text-white text-2xl md:text-4xl leading-tight mb-2" style={{ fontWeight: 700 }}>
                 Aproveite já os<br />melhores jogos!
               </h2>
-              <p className="text-white/60 text-xs md:text-sm font-normal hidden md:block">
+              <p className="text-white/60 text-xs md:text-sm font-medium hidden md:block">
                 Crash, Double, Mines e muito mais. Jogue agora!
               </p>
             </div>
