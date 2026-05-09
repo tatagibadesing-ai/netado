@@ -51,11 +51,11 @@ const PAYOUTS: Record<SymbolId, number> = {
   cherry: 3, star: 4, flame: 5, zap: 8, diamond: 15, seven: 21,
 };
 const TWO_PAYOUT = 1.03;
-const BOOST_MATCH    = 0.20;  // chance do rolo 2 copiar rolo 1 (e do rolo 3 quando r0==r1)
-const BOOST_MISMATCH = 0.60;  // anti-par no rolo 3 quando r0!=r1
+const BOOST_MATCH    = 0.24;  // chance do rolo 2 copiar rolo 1 (e do rolo 3 quando r0==r1)
+const BOOST_MISMATCH = 0.70;  // anti-par no rolo 3 quando r0!=r1
 
 // Boost de boas-vindas (primeiras 10 apostas) — RTP ~150% só por mais frequência de vitórias
-const WELCOME_BOOST_MATCH    = 0.25;
+const WELCOME_BOOST_MATCH    = 0.30;
 const WELCOME_BOOST_MISMATCH = 0.00;
 
 function pickRandom(): SymbolId {
