@@ -194,6 +194,47 @@ export function playSpinTick() {
   osc.stop(now + 0.06);
 }
 
+// Reel clicks — schedules one click per slot crossing the marker.
+// `slotTimesSec` is an ordered list of times (relative to now) when each slot
+// passes the line. Caller computes these from the same easing curve as the
+// reel animation, so audio and visual stay in sync. Returns a stop function.
+export function playReelClicks(slotTimesSec: number[]): () => void {
+  const ctx = getAudio();
+  if (!ctx) return () => {};
+  const now = ctx.currentTime;
+  const oscs: { osc: OscillatorNode; gain: GainNode }[] = [];
+
+  slotTimesSec.forEach((t, i) => {
+    const at = now + t;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "square";
+    // Slight pitch wobble keeps consecutive clicks from sounding identical.
+    const freq = 320 + ((i * 37) % 90);
+    osc.frequency.setValueAtTime(freq, at);
+    osc.frequency.exponentialRampToValueAtTime(110, at + 0.035);
+    gain.gain.setValueAtTime(0.0001, at);
+    gain.gain.exponentialRampToValueAtTime(0.07, at + 0.004);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.045);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(at);
+    osc.stop(at + 0.05);
+    oscs.push({ osc, gain });
+  });
+
+  return () => {
+    oscs.forEach(({ osc, gain }) => {
+      try {
+        gain.gain.cancelScheduledValues(ctx.currentTime);
+        gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.01);
+      } catch {
+        /* already stopped */
+      }
+    });
+  };
+}
+
 // Continuous spinning sound — rhythmic clicks like a slot reel.
 // Returns a stop function. Frequency of clicks slows over time as a deceleration cue.
 export function playSpinning(durationSec: number): () => void {
