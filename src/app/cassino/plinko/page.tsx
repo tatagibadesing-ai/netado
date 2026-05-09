@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 import { useBet } from "@/context/BetContext";
+import { useCasinoLimit, spendBetCredits } from "@/lib/casinoLimit";
+import CasinoLimitBlock from "@/components/CasinoLimitBlock";
 
 const ACCENT   = "#FF3C00";
 const GREEN    = "#07E385";
@@ -633,6 +635,7 @@ const PlinkoCanvas = forwardRef<PlinkoCanvasHandle>(function PlinkoCanvas(_, ref
 export default function PlinkoPage() {
   const router = useRouter();
   const { balance, userId, login, username } = useBet();
+  const limit = useCasinoLimit(userId ?? null);
   const [betAmount, setBetAmount] = useState(10);
   const [lastResult, setLastResult] = useState<{ slot: number; bet: number } | null>(null);
   const canvasHandleRef = useRef<PlinkoCanvasHandle>(null);
@@ -652,6 +655,10 @@ export default function PlinkoPage() {
   const play = async () => {
     if (betAmount <= 0 || betAmount > balanceRef.current) return;
     if (!userId || !username) return;
+    if (limit.blocked) return;
+    const allowed = await spendBetCredits(userId, "plinko");
+    if (!allowed) { limit.onBetSpent("plinko"); return; }
+    limit.onBetSpent("plinko");
 
     const { adjustBalance } = await import("@/lib/supabase");
     const debited = await adjustBalance(userId, -betAmount);
@@ -751,6 +758,10 @@ export default function PlinkoPage() {
       </div>
     </>
   );
+
+  if (limit.loaded && limit.blocked) {
+    return <CasinoLimitBlock {...limit} />;
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" style={{ background: PAGE_BG }}>

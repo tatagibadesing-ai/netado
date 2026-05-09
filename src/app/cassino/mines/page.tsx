@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useBet } from "@/context/BetContext";
 import { ArrowLeft, ChevronDown, Gem, Bomb } from "lucide-react";
 import { playBetPlaced, playCashout, playExplosion, playReveal, playWin } from "@/lib/sfx";
+import { useCasinoLimit, spendBetCredits } from "@/lib/casinoLimit";
+import CasinoLimitBlock from "@/components/CasinoLimitBlock";
 
 /* ── Constants ───────────────────────────────────────── */
 
@@ -169,6 +171,7 @@ function Cell({ state, onClick, disabled }: {
 export default function MinesPage() {
   const router = useRouter();
   const { balance, userId, login, username } = useBet();
+  const limit = useCasinoLimit(userId ?? null);
 
   const [mineCount, setMineCount] = useState(3);
   const [betAmount, setBetAmount] = useState(10);
@@ -190,8 +193,11 @@ export default function MinesPage() {
   const startGame = async () => {
     if (betAmount <= 0 || betAmount > balance) return;
     if (!userId || !username) return;
+    if (limit.blocked) return;
+    const allowed = await spendBetCredits(userId, "mines");
+    if (!allowed) { limit.onBetSpent("mines"); return; }
+    limit.onBetSpent("mines");
 
-    // Atomic debit on the server (multi-tab safe)
     const { adjustBalance } = await import("@/lib/supabase");
     const nb = await adjustBalance(userId, -betAmount);
     if (nb === null) return;
@@ -298,6 +304,10 @@ export default function MinesPage() {
   const isDead = phase === "dead";
   const isWon = phase === "won";
   const isIdle = phase === "idle";
+
+  if (limit.loaded && limit.blocked) {
+    return <CasinoLimitBlock {...limit} />;
+  }
 
   return (
     <div className="flex-1 flex flex-col bg-[#0d0d0d] min-h-0">

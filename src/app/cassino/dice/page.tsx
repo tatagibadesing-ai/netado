@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useBet } from "@/context/BetContext";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 import { playClick, playLose, playWin } from "@/lib/sfx";
+import { useCasinoLimit, spendBetCredits } from "@/lib/casinoLimit";
+import CasinoLimitBlock from "@/components/CasinoLimitBlock";
 
 const ACCENT_RED = "#FF3C00";
 const TRACK_GREEN_WIN = "#07E385";
@@ -189,6 +191,7 @@ type Phase = "idle" | "rolling" | "won" | "lost";
 export default function DicePage() {
   const router = useRouter();
   const { balance, userId, login, username } = useBet();
+  const limit = useCasinoLimit(userId ?? null);
 
   const [betAmount, setBetAmount] = useState(10);
   const [rollOver, setRollOver] = useState(10);
@@ -223,6 +226,10 @@ export default function DicePage() {
   const roll = async () => {
     if (isRolling || betAmount <= 0 || betAmount > balance) return;
     if (!userId || !username) return;
+    if (limit.blocked) return;
+    const allowed = await spendBetCredits(userId, "dice");
+    if (!allowed) { limit.onBetSpent("dice"); return; }
+    limit.onBetSpent("dice");
     const { adjustBalance } = await import("@/lib/supabase");
     const nbDebit = await adjustBalance(userId, -betAmount);
     if (nbDebit === null) return;
@@ -331,6 +338,10 @@ export default function DicePage() {
       </div>
     </div>
   );
+
+  if (limit.loaded && limit.blocked) {
+    return <CasinoLimitBlock {...limit} />;
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" style={{ background: PAGE_BG }}>
