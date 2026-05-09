@@ -303,11 +303,12 @@ export default function SlotsPage() {
 
   const spin = useCallback(async () => {
     if (spinning || betAmount <= 0 || betAmount > balanceRef.current) return;
-    const afterBet = balanceRef.current - betAmount;
-    balanceRef.current = afterBet;
-    login(userId!, username!, afterBet);
-    const { supabase } = await import("@/lib/supabase");
-    supabase.from("netano_profiles").update({ balance: afterBet }).eq("id", userId).then(() => {});
+    if (!userId || !username) return;
+    const { adjustBalance } = await import("@/lib/supabase");
+    const nb = await adjustBalance(userId, -betAmount);
+    if (nb === null) return;
+    balanceRef.current = nb;
+    login(userId, username, nb);
 
     // Boost de boas-vindas: primeiras 10 apostas têm BOOST_MATCH maior (RTP ~150%)
     const isWelcome = spinCountRef.current < 10;
@@ -341,13 +342,16 @@ export default function SlotsPage() {
     else if (res.label === "Par!") audio.neutral();
     else audio.lose();
     const payout = betRef.current * res.multiplier;
-    const newBal = balanceRef.current + payout;
-    balanceRef.current = newBal;
-    login(userId!, username!, newBal);
-    (async () => {
-      const { supabase } = await import("@/lib/supabase");
-      supabase.from("netano_profiles").update({ balance: newBal }).eq("id", userId).then(() => {});
-    })();
+    if (payout > 0 && userId && username) {
+      (async () => {
+        const { adjustBalance } = await import("@/lib/supabase");
+        const nb = await adjustBalance(userId, payout);
+        if (nb !== null) {
+          balanceRef.current = nb;
+          login(userId, username, nb);
+        }
+      })();
+    }
     setHistory(h => [{ multiplier: res.multiplier }, ...h].slice(0, 15));
   }, [doneCount]); // eslint-disable-line react-hooks/exhaustive-deps
 

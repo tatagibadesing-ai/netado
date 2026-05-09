@@ -29,10 +29,11 @@ function calcMultiplier(mines: number, revealed: number): number {
 
 const MINE_OPTIONS = [1,2,3,4,5,6,8,10,12,15,20,24];
 
-function MineSelect({ value, onChange, disabled }: {
+function MineSelect({ value, onChange, disabled, openUpward = false }: {
   value: number;
   onChange: (n: number) => void;
   disabled: boolean;
+  openUpward?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -66,8 +67,10 @@ function MineSelect({ value, onChange, disabled }: {
             animate={{ opacity: 1, y: 0, scaleY: 1 }}
             exit={{ opacity: 0, y: 4, scaleY: 0.95 }}
             transition={{ duration: 0.15 }}
-            style={{ transformOrigin: "bottom", maxHeight: "220px" }}
-            className="absolute z-[200] left-0 right-0 bottom-full mb-1 bg-[#1a1a1a] rounded-lg shadow-xl border border-white/5 overflow-y-auto"
+            style={{ transformOrigin: openUpward ? "bottom" : "top", maxHeight: "220px" }}
+            className={`absolute z-[200] left-0 right-0 bg-[#1a1a1a] rounded-lg shadow-xl border border-white/5 overflow-y-auto ${
+              openUpward ? "bottom-full mb-1" : "top-full mt-1"
+            }`}
           >
             {MINE_OPTIONS.map(n => (
               <motion.li
@@ -186,12 +189,13 @@ export default function MinesPage() {
 
   const startGame = async () => {
     if (betAmount <= 0 || betAmount > balance) return;
+    if (!userId || !username) return;
 
-    // Desconta aposta
-    const newBalance = balance - betAmount;
-    login(userId!, username!, newBalance);
-    const { supabase } = await import("@/lib/supabase");
-    await supabase.from("netano_profiles").update({ balance: newBalance }).eq("id", userId);
+    // Atomic debit on the server (multi-tab safe)
+    const { adjustBalance } = await import("@/lib/supabase");
+    const nb = await adjustBalance(userId, -betAmount);
+    if (nb === null) return;
+    login(userId, username, nb);
 
     // Gera posições das minas aleatoriamente
     const mines = new Set<number>();
@@ -264,7 +268,6 @@ export default function MinesPage() {
 
     const mult = calcMultiplier(mineCount, revCount);
     const winnings = betAmount * mult;
-    const newBalance = balance + winnings;
 
     // Reveal mine positions as "mine-safe"
     setCells(prev => {
@@ -277,10 +280,11 @@ export default function MinesPage() {
     setPhase("won");
     playCashout();
     setTimeout(() => playWin(), 150);
-    login(userId!, username!, newBalance);
-    const { supabase } = await import("@/lib/supabase");
-    await supabase.from("netano_profiles").update({ balance: newBalance }).eq("id", userId);
-  }, [phase, revealed, mineCount, betAmount, balance, userId, username, login, minePositions]);
+    if (!userId || !username) return;
+    const { adjustBalance } = await import("@/lib/supabase");
+    const nb = await adjustBalance(userId, winnings);
+    if (nb !== null) login(userId, username, nb);
+  }, [phase, revealed, mineCount, betAmount, userId, username, login, minePositions]);
 
   const reset = () => {
     setPhase("idle");
@@ -409,7 +413,7 @@ export default function MinesPage() {
             </div>
             <div className="flex-1">
               <label className="text-xs text-white/40 font-medium block mb-1.5">Minas</label>
-              <MineSelect value={mineCount} onChange={setMineCount} disabled={isPlaying} />
+              <MineSelect value={mineCount} onChange={setMineCount} disabled={isPlaying} openUpward />
             </div>
           </div>
           <AnimatePresence>

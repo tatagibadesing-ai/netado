@@ -222,31 +222,28 @@ export default function CrashPage() {
     if (phase !== "waiting") return;
     if (betActive) return;
     if (betAmount <= 0 || betAmount > balance) return;
+    if (!userId || !username) return;
+    const { adjustBalance } = await import("@/lib/supabase");
+    const nb = await adjustBalance(userId, -betAmount);
+    if (nb === null) return; // server rejected (parallel tab already spent)
     betCountRef.current += 1;
-    if (userId) localStorage.setItem(`crash_bet_count_${userId}`, String(betCountRef.current));
+    localStorage.setItem(`crash_bet_count_${userId}`, String(betCountRef.current));
     betActiveRef.current = true;
     setCashedOut(null);
     setBetActive(true);
     playBetPlaced();
-    const newBalance = balance - betAmount;
-    login(userId!, username!, newBalance);
-    if (userId) {
-      const { supabase } = await import("@/lib/supabase");
-      await supabase.from("netano_profiles").update({ balance: newBalance }).eq("id", userId);
-    }
+    login(userId, username, nb);
   };
 
   const cashOut = async (mult: number) => {
     const winnings = betAmount * mult;
-    const newBalance = balance + winnings;
     setCashedOut(mult);
     setBetActive(false);
     playCashout();
-    login(userId!, username!, newBalance);
-    if (userId) {
-      const { supabase } = await import("@/lib/supabase");
-      await supabase.from("netano_profiles").update({ balance: newBalance }).eq("id", userId);
-    }
+    if (!userId || !username) return;
+    const { adjustBalance } = await import("@/lib/supabase");
+    const nb = await adjustBalance(userId, winnings);
+    if (nb !== null) login(userId, username, nb);
   };
 
   const handleCashOut = () => {

@@ -651,12 +651,13 @@ export default function PlinkoPage() {
 
   const play = async () => {
     if (betAmount <= 0 || betAmount > balanceRef.current) return;
+    if (!userId || !username) return;
 
-    const afterBet = balanceRef.current - betAmount;
-    balanceRef.current = afterBet;
-    login(userId!, username!, afterBet);
-    const { supabase } = await import("@/lib/supabase");
-    supabase.from("netano_profiles").update({ balance: afterBet }).eq("id", userId).then(() => {});
+    const { adjustBalance } = await import("@/lib/supabase");
+    const debited = await adjustBalance(userId, -betAmount);
+    if (debited === null) return;
+    balanceRef.current = debited;
+    login(userId, username, debited);
 
     // Boost de boas-vindas: primeiras 20 bolinhas usam pesos enviesados (RTP ~140%)
     const isWelcome = ballCountRef.current < 20;
@@ -667,7 +668,7 @@ export default function PlinkoPage() {
     }));
     const selected = pickWeighted(allSlots);
     ballCountRef.current += 1;
-    if (userId) localStorage.setItem(`plinko_ball_count_${userId}`, String(ballCountRef.current));
+    localStorage.setItem(`plinko_ball_count_${userId}`, String(ballCountRef.current));
     const sim = simulate(selected);
 
     canvasHandleRef.current?.addBall({
@@ -682,15 +683,16 @@ export default function PlinkoPage() {
     const thisBet = betAmount;
     setTimeout(async () => {
       setLastResult({ slot: selected, bet: thisBet });
-      // Win/lose sound shortly after the land thump
       const slot = SLOTS[selected];
       setTimeout(() => { slot.win ? playWin() : playLose(); }, 120);
       const payout = thisBet * SLOTS[selected].value;
-      const newBal = balanceRef.current + payout;
-      balanceRef.current = newBal;
-      login(userId!, username!, newBal);
-      const { supabase: sb } = await import("@/lib/supabase");
-      sb.from("netano_profiles").update({ balance: newBal }).eq("id", userId).then(() => {});
+      if (payout > 0) {
+        const credited = await adjustBalance(userId, payout);
+        if (credited !== null) {
+          balanceRef.current = credited;
+          login(userId, username, credited);
+        }
+      }
     }, dropMs);
   };
 

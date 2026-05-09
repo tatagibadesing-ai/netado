@@ -222,10 +222,11 @@ export default function DicePage() {
 
   const roll = async () => {
     if (isRolling || betAmount <= 0 || betAmount > balance) return;
-    const newBalance = balance - betAmount;
-    login(userId!, username!, newBalance);
-    const { supabase } = await import("@/lib/supabase");
-    await supabase.from("netano_profiles").update({ balance: newBalance }).eq("id", userId);
+    if (!userId || !username) return;
+    const { adjustBalance } = await import("@/lib/supabase");
+    const nbDebit = await adjustBalance(userId, -betAmount);
+    if (nbDebit === null) return;
+    login(userId, username, nbDebit);
     setPhase("rolling");
     setResult(null);
     playClick();
@@ -238,9 +239,8 @@ export default function DicePage() {
     if (won) {
       playWin();
       const payout = betAmount * multiplier;
-      const finalBalance = newBalance + payout;
-      login(userId!, username!, finalBalance);
-      await supabase.from("netano_profiles").update({ balance: finalBalance }).eq("id", userId);
+      const nbCredit = await adjustBalance(userId, payout);
+      if (nbCredit !== null) login(userId, username, nbCredit);
     } else {
       playLose();
     }
