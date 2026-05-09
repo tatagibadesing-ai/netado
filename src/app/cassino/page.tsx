@@ -169,9 +169,8 @@ export default function CassinoPage() {
             <img
               src="/bannercassino.webp"
               alt="Cassino Netano"
-              className="w-full h-full object-cover scale-[1.45] md:scale-100 origin-left md:origin-center object-[0%_45%] md:object-[center_45%] -translate-x-[11%] md:translate-x-0"
+              className="w-full h-full object-cover scale-[1.45] md:scale-100 origin-left md:origin-center object-[0%_45%] md:object-[center_40%] -translate-x-[11%] md:translate-x-0"
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-black/5 to-transparent" />
             <div className="absolute inset-0 flex flex-col justify-center px-4 md:px-12">
               <p className="text-white/70 text-xs md:text-sm font-semibold tracking-wide mb-1">Originais Netano</p>
               <h2 className="text-white text-2xl md:text-4xl leading-tight mb-2" style={{ fontWeight: 700 }}>
