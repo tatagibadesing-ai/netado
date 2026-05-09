@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Flag, Trophy, Zap } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useBet } from "@/context/BetContext";
 
 const ACCENT = "#FF3C00";
@@ -79,10 +79,10 @@ interface Horse {
 }
 
 const HORSES: Horse[] = [
-  { id: "orange", name: "Furia Solar", colorLabel: "Laranja", color: "#FF8A00", row: 0, laneBg: "/derby-lane-orange.png", bottomOffset: 4, odds: 2.4, chance: 38 },
-  { id: "cyan", name: "Raio Ciano", colorLabel: "Ciano", color: "#00D9FF", row: 1, laneBg: "/derby-lane-cyan.png", bottomOffset: -2, odds: 3.2, chance: 28 },
-  { id: "lime", name: "Lima Turbo", colorLabel: "Lima", color: "#B6F000", row: 2, laneBg: "/derby-lane-lime.png", bottomOffset: -9, odds: 4.2, chance: 21 },
-  { id: "magenta", name: "Magenta Lux", colorLabel: "Magenta", color: "#FF2FB2", row: 3, laneBg: "/derby-lane-magenta.png", bottomOffset: -15, odds: 6.8, chance: 13 },
+  { id: "orange", name: "Furia Solar", colorLabel: "Laranja", color: "#FF3C00", row: 0, laneBg: "/derby-lane-orange.webp", bottomOffset: 4, odds: 2.4, chance: 38 },
+  { id: "cyan", name: "Raio Ciano", colorLabel: "Ciano", color: "#26C6DA", row: 1, laneBg: "/derby-lane-cyan.webp", bottomOffset: -2, odds: 3.2, chance: 28 },
+  { id: "lime", name: "Lima Turbo", colorLabel: "Lima", color: "#A7D129", row: 2, laneBg: "/derby-lane-lime.webp", bottomOffset: -9, odds: 4.2, chance: 21 },
+  { id: "magenta", name: "Magenta Lux", colorLabel: "Magenta", color: "#D83A8C", row: 3, laneBg: "/derby-lane-magenta.webp", bottomOffset: -15, odds: 6.8, chance: 13 },
 ];
 
 const START_POSITIONS: Record<HorseId, number> = {
@@ -202,7 +202,7 @@ function HorseSprite({ horse, frame }: { horse: Horse; frame: number }) {
   return (
     <div className="relative h-[74px] w-[92px] overflow-hidden md:h-[96px] md:w-[118px]">
       <img
-        src="/derby-horse-sprites.png"
+        src="/derby-horse-sprites.webp"
         alt=""
         className="pointer-events-none absolute left-0 top-0 h-[400%] w-[400%] max-w-none select-none"
         style={{
@@ -423,26 +423,26 @@ export default function DerbyPage() {
 
       <div>
         <label className="mb-2 block text-xs font-medium text-white/40">Selecionar Cavalo</label>
-        <div className="grid grid-cols-4 gap-2 md:grid-cols-2">
-          {HORSES.map((horse) => (
-            <button
-              key={horse.id}
-              onClick={() => setSelectedHorse(horse.id)}
-              disabled={isRunning}
-              className="min-w-0 rounded-[4px] px-1 py-1.5 text-center transition-all disabled:opacity-50 md:px-3 md:py-2.5 md:text-left"
-              style={{
-                background: selectedHorse === horse.id ? `${horse.color}24` : INPUT_BG,
-              }}
-            >
-              <div className="mb-0.5 flex min-w-0 items-center justify-center gap-1 md:mb-1 md:justify-start md:gap-2">
-                <ColorDot color={horse.color} />
-                <span className="truncate text-[9px] font-semibold text-white md:text-xs">{horse.colorLabel}</span>
-              </div>
-              <p className="text-sm font-semibold leading-none md:text-base" style={{ color: horse.color }}>
-                {horse.odds.toFixed(1)}x
-              </p>
-            </button>
-          ))}
+        <div className="grid grid-cols-4 gap-2">
+          {HORSES.map((horse) => {
+            const isSelected = selectedHorse === horse.id;
+            return (
+              <button
+                key={horse.id}
+                onClick={() => setSelectedHorse(horse.id)}
+                disabled={isRunning}
+                className="flex flex-col items-center justify-center rounded py-2 text-xs font-semibold transition-all disabled:opacity-50"
+                style={{
+                  background: "#121212",
+                  color: horse.color,
+                  outline: isSelected ? `1px solid ${horse.color}` : "1px solid transparent",
+                  outlineOffset: "1px",
+                }}
+              >
+                <span className="text-sm font-semibold leading-none">x{horse.odds.toFixed(1)}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -463,10 +463,9 @@ export default function DerbyPage() {
         onClick={phase === "finished" ? resetRace : startRace}
         disabled={isRunning || betAmount > balance || betAmount <= 0}
         whileTap={{ scale: 0.97 }}
-        className="flex w-full items-center justify-center gap-2 rounded-[3px] py-3.5 text-sm font-semibold text-white transition-all disabled:opacity-40"
+        className="flex w-full items-center justify-center rounded-[3px] py-3.5 text-sm font-semibold text-white transition-all disabled:opacity-40"
         style={{ background: ACCENT }}
       >
-        {isRunning ? <Zap size={15} /> : phase === "finished" ? <Flag size={15} /> : <Trophy size={15} />}
         {isRunning ? "Correndo..." : phase === "finished" ? "Nova Corrida" : "Apostar e Correr"}
       </motion.button>
 

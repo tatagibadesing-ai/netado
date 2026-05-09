@@ -283,7 +283,7 @@ export default function CrashPage() {
     : multiplier >= 2 ? "#eab308"
     : "#FF3C00";
 
-  /* ── History pills (shared) ── */
+  /* ── History pills ── */
   const HistoryBar = (
     <div className="flex gap-1.5 flex-wrap">
       {history.map((h, i) => (
@@ -298,6 +298,21 @@ export default function CrashPage() {
       <button className="ml-auto text-white/20 hover:text-white/50 transition-colors">
         <BarChart2 size={15} />
       </button>
+    </div>
+  );
+
+  /* ── Mobile history: single row, no icon, scrollable ── */
+  const HistoryBarMobile = (
+    <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+      {history.map((h, i) => (
+        <span key={i} className="px-2.5 py-1 rounded text-xs font-semibold shrink-0"
+          style={{
+            background: h.multiplier >= 2 ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.1)",
+            color: h.multiplier >= 2 ? "#22c55e" : "#ef4444",
+          }}>
+          {h.multiplier.toFixed(2)}X
+        </span>
+      ))}
     </div>
   );
 
@@ -318,7 +333,7 @@ export default function CrashPage() {
 
       {/* History — mobile only (top bar) */}
       <div className="md:hidden px-4 py-2 bg-[#111] border-b border-white/5">
-        {HistoryBar}
+        {HistoryBarMobile}
       </div>
 
       {/* Main */}
@@ -387,7 +402,7 @@ export default function CrashPage() {
         </div>
 
         {/* Right: chart + history (desktop) / chart only (mobile) */}
-        <div className="flex-1 flex flex-col bg-[#0d0d0d] min-w-0 min-h-[260px]">
+        <div className="flex-1 flex flex-col bg-[#0d0d0d] min-w-0 min-h-0 md:min-h-[260px]">
           <div className="flex-1 relative select-none" style={{ pointerEvents: "none" }}>
             <CrashChart phase={phase} multiplier={multiplier} />
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -425,7 +440,7 @@ export default function CrashPage() {
         </div>
 
         {/* Bottom panel — mobile only */}
-        <div className="md:hidden bg-[#111] flex flex-col gap-3 p-4 border-t border-white/5">
+        <div className="md:hidden bg-[#111] flex flex-col gap-2 p-3 border-t border-white/5 shrink-0">
           <div className="flex gap-2">
             <div className="flex-1">
               <label className="text-xs text-white/40 font-medium block mb-1.5">Quantia</label>
