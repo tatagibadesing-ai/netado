@@ -17,11 +17,13 @@ export async function GET() {
     const now = new Date();
     const spNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
     
-    // Hoje
-    const yyyy = spNow.getFullYear();
-    const mm = String(spNow.getMonth() + 1).padStart(2, '0');
-    const dd = String(spNow.getDate()).padStart(2, '0');
-    const todayStr = `${yyyy}${mm}${dd}`;
+    // Ontem (para resolver apostas pendentes de jogos já finalizados)
+    const spYesterday = new Date(spNow);
+    spYesterday.setDate(spYesterday.getDate() - 1);
+    const yd_yyyy = spYesterday.getFullYear();
+    const yd_mm = String(spYesterday.getMonth() + 1).padStart(2, '0');
+    const yd_dd = String(spYesterday.getDate()).padStart(2, '0');
+    const yesterdayStr = `${yd_yyyy}${yd_mm}${yd_dd}`;
 
     // Amanhã
     const spTomorrow = new Date(spNow);
@@ -31,7 +33,7 @@ export async function GET() {
     const tm_dd = String(spTomorrow.getDate()).padStart(2, '0');
     const tomorrowStr = `${tm_yyyy}${tm_mm}${tm_dd}`;
 
-    const dateRange = `${todayStr}-${tomorrowStr}`;
+    const dateRange = `${yesterdayStr}-${tomorrowStr}`;
 
     const urls = [
       `https://site.api.espn.com/apis/site/v2/sports/soccer/bra.1/scoreboard?dates=${dateRange}`,
@@ -68,13 +70,12 @@ export async function GET() {
             const id = event.id;
             const matchDate = new Date(event.date);
             
-            // Check if match started more than 4 hours ago (approx 2h after it finished)
             const hoursSinceStart = (now.getTime() - matchDate.getTime()) / (1000 * 60 * 60);
             const isFinished = event.status.type.completed;
-            
-            // "quero que dps de 2h do jogos ele saia"
-            if (isFinished && hoursSinceStart > 4) {
-              continue; // Skip this match
+
+            // Manter jogos finalizados por 24h para garantir resolução de apostas pendentes
+            if (isFinished && hoursSinceStart > 24) {
+              continue;
             }
 
             // Exibir data se for amanhã
