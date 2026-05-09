@@ -5,6 +5,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { useBet } from "@/context/BetContext";
+import { useCasinoLimit, spendBetCredits } from "@/lib/casinoLimit";
+import CasinoLimitBlock from "@/components/CasinoLimitBlock";
 
 const ACCENT = "#FF3C00";
 const GREEN = "#07E385";
@@ -221,6 +223,7 @@ function ColorDot({ color }: { color: string }) {
 export default function DerbyPage() {
   const router = useRouter();
   const { balance, userId, login, username } = useBet();
+  const limit = useCasinoLimit(userId ?? null);
   const [selectedHorse, setSelectedHorse] = useState<HorseId>("orange");
   const [betAmount, setBetAmount] = useState(10);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -341,6 +344,10 @@ export default function DerbyPage() {
 
   const startRace = async () => {
     if (!userId || !username || isRunning || betAmount <= 0 || betAmount > balanceRef.current) return;
+    if (limit.blocked) return;
+    const allowed = await spendBetCredits(userId, "derby");
+    if (!allowed) { limit.onBetSpent("derby"); return; }
+    limit.onBetSpent("derby");
     getDerbyAudio();
 
     const wager = betAmount;
@@ -348,7 +355,7 @@ export default function DerbyPage() {
     const pickedHorse = horseById(picked);
 
     const debited = await applyDelta(-wager);
-    if (debited === null) return; // server rejected (parallel tab spent it)
+    if (debited === null) return;
 
     const isWelcomeBet = betCountRef.current < 7;
     const targetRtp = isWelcomeBet ? 1.4 : 1.1;
@@ -493,6 +500,10 @@ export default function DerbyPage() {
       </div>
     </>
   );
+
+  if (limit.loaded && limit.blocked) {
+    return <CasinoLimitBlock {...limit} />;
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" style={{ background: PAGE_BG }}>

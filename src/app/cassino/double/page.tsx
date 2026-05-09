@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useBet } from "@/context/BetContext";
 import { ArrowLeft, BarChart2 } from "lucide-react";
 import { playBetPlaced, playCashout, playLose, playReelClicks, playSpinTick, playWin } from "@/lib/sfx";
+import { useCasinoLimit, spendBetCredits } from "@/lib/casinoLimit";
+import CasinoLimitBlock from "@/components/CasinoLimitBlock";
 
 // cubic-bezier(0.05, 0.85, 0.2, 1.0) progress(t) for t in [0,1].
 // Used to mirror the reel's CSS animation timing so clicks align with the
@@ -208,6 +210,7 @@ function Reel({ phase, resultIndex }: { phase: Phase; resultIndex: number | null
 export default function DoublePage() {
   const router = useRouter();
   const { balance, userId, login, username } = useBet();
+  const limit = useCasinoLimit(userId ?? null);
   const [betAmount, setBetAmount] = useState(10);
   const [selectedColor, setSelectedColor] = useState<Color | null>(null);
   const betCountRef = useRef(0);
@@ -287,6 +290,10 @@ export default function DoublePage() {
   const handleBet = async () => {
     if (phase !== "waiting" || !selectedColor || betAmount <= 0 || betAmount > balance) return;
     if (!userId || !username) return;
+    if (limit.blocked) return;
+    const allowed = await spendBetCredits(userId, "double");
+    if (!allowed) { limit.onBetSpent("double"); return; }
+    limit.onBetSpent("double");
     const { adjustBalance } = await import("@/lib/supabase");
     const nb = await adjustBalance(userId, -betAmount);
     if (nb === null) return;
@@ -312,6 +319,10 @@ export default function DoublePage() {
       </button>
     </div>
   );
+
+  if (limit.loaded && limit.blocked) {
+    return <CasinoLimitBlock {...limit} />;
+  }
 
   return (
     <div className="flex-1 flex flex-col bg-[#0d0d0d] min-h-0">

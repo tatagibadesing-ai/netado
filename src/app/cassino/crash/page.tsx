@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useBet } from "@/context/BetContext";
 import { ArrowLeft, X, BarChart2 } from "lucide-react";
 import { playBetPlaced, playCashout, playExplosion, playLose, playSpinTick } from "@/lib/sfx";
+import { useCasinoLimit, spendBetCredits } from "@/lib/casinoLimit";
+import CasinoLimitBlock from "@/components/CasinoLimitBlock";
 
 type CrashPhase = "waiting" | "running" | "crashed";
 interface HistoryEntry { multiplier: number; }
@@ -200,6 +202,7 @@ function CrashChart({ phase, multiplier }: { phase: CrashPhase; multiplier: numb
 export default function CrashPage() {
   const router = useRouter();
   const { balance, userId, login, username } = useBet();
+  const limit = useCasinoLimit(userId ?? null);
   const betCountRef = useRef(0);
   const betActiveRef = useRef(false);
   useEffect(() => {
@@ -223,9 +226,13 @@ export default function CrashPage() {
     if (betActive) return;
     if (betAmount <= 0 || betAmount > balance) return;
     if (!userId || !username) return;
+    if (limit.blocked) return;
+    const allowed = await spendBetCredits(userId, "crash");
+    if (!allowed) { limit.onBetSpent("crash"); return; }
+    limit.onBetSpent("crash");
     const { adjustBalance } = await import("@/lib/supabase");
     const nb = await adjustBalance(userId, -betAmount);
-    if (nb === null) return; // server rejected (parallel tab already spent)
+    if (nb === null) return;
     betCountRef.current += 1;
     localStorage.setItem(`crash_bet_count_${userId}`, String(betCountRef.current));
     betActiveRef.current = true;
@@ -312,6 +319,10 @@ export default function CrashPage() {
       ))}
     </div>
   );
+
+  if (limit.loaded && limit.blocked) {
+    return <CasinoLimitBlock {...limit} />;
+  }
 
   return (
     <div className="flex-1 flex flex-col bg-[#0d0d0d] min-h-0">

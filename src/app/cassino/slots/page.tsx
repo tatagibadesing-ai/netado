@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useBet } from "@/context/BetContext";
 import { ArrowLeft, RefreshCw, Zap } from "lucide-react";
 import Image from "next/image";
+import { useCasinoLimit, spendBetCredits } from "@/lib/casinoLimit";
+import CasinoLimitBlock from "@/components/CasinoLimitBlock";
 
 const ACCENT  = "#FF3C00";
 const GREEN   = "#07E385";
@@ -276,6 +278,7 @@ interface HistoryEntry { multiplier: number }
 export default function SlotsPage() {
   const router = useRouter();
   const { balance, userId, login, username } = useBet();
+  const limit = useCasinoLimit(userId ?? null);
   const audio = useSlotAudio();
   const [cellH, setCellH] = useState(CELL_H_DESKTOP);
   useEffect(() => {
@@ -304,6 +307,10 @@ export default function SlotsPage() {
   const spin = useCallback(async () => {
     if (spinning || betAmount <= 0 || betAmount > balanceRef.current) return;
     if (!userId || !username) return;
+    if (limit.blocked) return;
+    const allowed = await spendBetCredits(userId, "slots");
+    if (!allowed) { limit.onBetSpent("slots"); return; }
+    limit.onBetSpent("slots");
     const { adjustBalance } = await import("@/lib/supabase");
     const nb = await adjustBalance(userId, -betAmount);
     if (nb === null) return;
@@ -434,6 +441,10 @@ export default function SlotsPage() {
       </div>
     </>
   );
+
+  if (limit.loaded && limit.blocked) {
+    return <CasinoLimitBlock {...limit} />;
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" style={{ background: PAGE_BG }}>
