@@ -167,7 +167,7 @@ export default function CassinoPage() {
           {/* Banner */}
           <div className="relative w-full rounded-2xl overflow-hidden max-h-[220px] md:max-h-[260px]">
             <img
-              src="/bannercassino.webp"
+              src="/bannercassino.webp?v=2"
               alt="Cassino Netano"
               className="w-full h-full object-cover scale-[1.45] md:scale-100 origin-left md:origin-center object-[0%_45%] md:object-[center_40%] -translate-x-[11%] md:translate-x-0"
             />
