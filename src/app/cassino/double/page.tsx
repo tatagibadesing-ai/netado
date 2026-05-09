@@ -5,7 +5,31 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useBet } from "@/context/BetContext";
 import { ArrowLeft, BarChart2 } from "lucide-react";
-import { playBetPlaced, playCashout, playLose, playSpinTick, playSpinning, playWin } from "@/lib/sfx";
+import { playBetPlaced, playCashout, playLose, playReelClicks, playSpinTick, playWin } from "@/lib/sfx";
+
+// cubic-bezier(0.05, 0.85, 0.2, 1.0) progress(t) for t in [0,1].
+// Used to mirror the reel's CSS animation timing so clicks align with the
+// visual slot passing the marker.
+function bezierProgress(t: number): number {
+  // Standard cubic bezier formula with P0=(0,0), P3=(1,1).
+  // Solve x(s)=t for s, then return y(s). Use 8 Newton iterations — overkill
+  // for 30 calls per spin but cheap.
+  const x1 = 0.05, y1 = 0.85, x2 = 0.2, y2 = 1.0;
+  const cx = (s: number) => 3 * (1 - s) * (1 - s) * s * x1 + 3 * (1 - s) * s * s * x2 + s * s * s;
+  const cy = (s: number) => 3 * (1 - s) * (1 - s) * s * y1 + 3 * (1 - s) * s * s * y2 + s * s * s;
+  const dcx = (s: number) =>
+    3 * (1 - s) * (1 - s) * x1 + 6 * (1 - s) * s * (x2 - x1) + 3 * s * s * (1 - x2);
+  let s = t;
+  for (let i = 0; i < 8; i++) {
+    const dx = cx(s) - t;
+    const slope = dcx(s);
+    if (Math.abs(slope) < 1e-6) break;
+    s -= dx / slope;
+    if (s < 0) s = 0;
+    if (s > 1) s = 1;
+  }
+  return cy(s);
+}
 
 type Color = "red" | "black" | "white";
 type Phase = "waiting" | "spinning" | "result";
@@ -239,7 +263,24 @@ export default function DoublePage() {
 
   useEffect(() => {
     if (phase !== "spinning") return;
-    const stop = playSpinning(4);
+    // Reel uses transform 3.8s with the same easing curve. We schedule one
+    // click per slot crossing the center marker — naturally dense at first
+    // and sparse near the end as the reel decelerates.
+    const DURATION = 3.8;
+    const TOTAL_SLOTS = 22; // approximate count that scrolls past the marker
+    const times: number[] = [];
+    for (let i = 1; i <= TOTAL_SLOTS; i++) {
+      // Solve progress(t) = i/TOTAL_SLOTS for t. Sample t and binary search.
+      const target = i / TOTAL_SLOTS;
+      let lo = 0, hi = 1;
+      for (let k = 0; k < 24; k++) {
+        const mid = (lo + hi) / 2;
+        if (bezierProgress(mid) < target) lo = mid;
+        else hi = mid;
+      }
+      times.push(((lo + hi) / 2) * DURATION);
+    }
+    const stop = playReelClicks(times);
     return () => stop();
   }, [phase]);
 
