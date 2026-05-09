@@ -238,13 +238,13 @@ export default function DoublePage() {
       const won = result.color === selectedColor;
       const payout = won ? betAmount * MULTIPLIERS[selectedColor] : 0;
       if (won) {
-        const newBalance = balance + payout;
-        login(userId!, username!, newBalance);
         playCashout();
         setTimeout(() => playWin(), 150);
         (async () => {
-          const { supabase } = await import("@/lib/supabase");
-          await supabase.from("netano_profiles").update({ balance: newBalance }).eq("id", userId);
+          if (!userId || !username) return;
+          const { adjustBalance } = await import("@/lib/supabase");
+          const nb = await adjustBalance(userId, payout);
+          if (nb !== null) login(userId, username, nb);
         })();
       } else {
         playLose();
@@ -253,7 +253,7 @@ export default function DoublePage() {
       setBetActive(false);
     }
     prevPhase.current = phase;
-  }, [phase, betActive, resultIndex, selectedColor, balance, userId, username, login, betAmount]);
+  }, [phase, betActive, resultIndex, selectedColor, userId, username, login, betAmount]);
 
   useEffect(() => {
     if (phase === "waiting" && countdown > 0 && countdown <= 3) {
@@ -286,15 +286,16 @@ export default function DoublePage() {
 
   const handleBet = async () => {
     if (phase !== "waiting" || !selectedColor || betAmount <= 0 || betAmount > balance) return;
+    if (!userId || !username) return;
+    const { adjustBalance } = await import("@/lib/supabase");
+    const nb = await adjustBalance(userId, -betAmount);
+    if (nb === null) return;
     betCountRef.current += 1;
-    if (userId) localStorage.setItem(`double_bet_count_${userId}`, String(betCountRef.current));
+    localStorage.setItem(`double_bet_count_${userId}`, String(betCountRef.current));
     betActiveRef.current = true;
     setBetActive(true); setLastResult(null);
     playBetPlaced();
-    const newBalance = balance - betAmount;
-    login(userId!, username!, newBalance);
-    const { supabase } = await import("@/lib/supabase");
-    await supabase.from("netano_profiles").update({ balance: newBalance }).eq("id", userId);
+    login(userId, username, nb);
   };
 
   /* ── History squares (shared) ── */

@@ -307,11 +307,10 @@ export default function QuizPage() {
     flashIdRef.current += 1;
     setMoneyFlash({ id: flashIdRef.current, amount: Math.abs(delta), won: isCorrect });
 
-    const newBal = balance + delta;
-    if (userId) {
-      login(userId, username!, newBal);
-      const { supabase } = await import("@/lib/supabase");
-      await supabase.from("netano_profiles").update({ balance: newBal }).eq("id", userId);
+    if (userId && username) {
+      const { adjustBalance } = await import("@/lib/supabase");
+      const nb = await adjustBalance(userId, delta);
+      if (nb !== null) login(userId, username, nb);
     }
   }
 
@@ -324,12 +323,11 @@ export default function QuizPage() {
     flashIdRef.current += 1;
     setMoneyFlash({ id: flashIdRef.current, amount: betAmount, won: false });
     playWrong();
-    const newBal = balance - betAmount;
-    if (userId) {
-      login(userId, username!, newBal);
-      import("@/lib/supabase").then(({ supabase }) =>
-        supabase.from("netano_profiles").update({ balance: newBal }).eq("id", userId)
-      );
+    if (userId && username) {
+      import("@/lib/supabase").then(async ({ adjustBalance }) => {
+        const nb = await adjustBalance(userId, -betAmount);
+        if (nb !== null) login(userId, username, nb);
+      });
     }
   }
 

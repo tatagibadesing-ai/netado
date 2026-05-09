@@ -328,12 +328,15 @@ export default function DerbyPage() {
   const selected = horseById(selectedHorse);
   const isRunning = phase === "running";
 
-  const syncBalance = async (newBalance: number) => {
-    if (!userId || !username) return;
-    balanceRef.current = newBalance;
-    login(userId, username, newBalance);
-    const { supabase } = await import("@/lib/supabase");
-    await supabase.from("netano_profiles").update({ balance: newBalance }).eq("id", userId);
+  const applyDelta = async (delta: number): Promise<number | null> => {
+    if (!userId || !username) return null;
+    const { adjustBalance } = await import("@/lib/supabase");
+    const nb = await adjustBalance(userId, delta);
+    if (nb !== null) {
+      balanceRef.current = nb;
+      login(userId, username, nb);
+    }
+    return nb;
   };
 
   const startRace = async () => {
@@ -343,11 +346,14 @@ export default function DerbyPage() {
     const wager = betAmount;
     const picked = selectedHorse;
     const pickedHorse = horseById(picked);
+
+    const debited = await applyDelta(-wager);
+    if (debited === null) return; // server rejected (parallel tab spent it)
+
     const isWelcomeBet = betCountRef.current < 7;
     const targetRtp = isWelcomeBet ? 1.4 : 1.1;
     const raceWinner = pickWinner(picked, targetRtp);
     const nextRacePath = buildRacePath(raceWinner);
-    const afterBet = balanceRef.current - wager;
 
     betCountRef.current += 1;
     localStorage.setItem(`derby_bet_count_${userId}`, String(betCountRef.current));
@@ -361,12 +367,10 @@ export default function DerbyPage() {
     strideDistanceRef.current = createHorseRecord(0);
     previousPositionsRef.current = START_POSITIONS;
     setRacePath(nextRacePath);
-    syncBalance(afterBet);
 
     finishTimerRef.current = setTimeout(async () => {
       const won = raceWinner === picked;
       const payout = won ? wager * pickedHorse.odds : 0;
-      const finalBalance = afterBet + payout;
 
       setPhase("finished");
       setWinner(raceWinner);
@@ -377,7 +381,7 @@ export default function DerbyPage() {
       if (won) playWinSound();
       else playLoseSound();
 
-      if (won) await syncBalance(finalBalance);
+      if (won) await applyDelta(payout);
     }, runningDuration * 1000);
   };
 

@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Match, OddType, initialMatches } from "../data/matches";
-import { supabase } from "../lib/supabase";
+import { supabase, adjustBalance } from "../lib/supabase";
 
 export interface SlipItem {
   matchId: string;
@@ -240,9 +240,9 @@ export function BetProvider({ children }: { children: ReactNode }) {
       supabase.from("netano_bets").update({ status, picks }).eq("id", id)
     );
     if (balanceDelta > 0) {
-      const newBalance = balance + balanceDelta;
-      setBalance(newBalance);
-      supabase.from("netano_profiles").update({ balance: newBalance }).eq("id", userId);
+      adjustBalance(userId, balanceDelta).then((nb) => {
+        if (nb !== null) setBalance(nb);
+      });
     }
   }, [matches, userId]);
 
@@ -284,23 +284,24 @@ export function BetProvider({ children }: { children: ReactNode }) {
       status: "pending",
     };
 
-    const newBalance = balance - amount;
-    setBalance(newBalance);
+    // Atomic debit on the server. If it fails (e.g. insufficient funds because
+    // a parallel tab already spent the money), abort the bet without touching
+    // local state.
+    const nb = await adjustBalance(userId, -amount);
+    if (nb === null) return;
+    setBalance(nb);
     setPlacedBets(prev => [newBet, ...prev]);
     setBetSlip([]);
 
-    await Promise.all([
-      supabase.from("netano_bets").insert({
-        id: newBet.id,
-        user_id: userId,
-        amount: newBet.amount,
-        picks: newBet.picks,
-        total_odds: newBet.totalOdds,
-        potential_return: newBet.potentialReturn,
-        status: newBet.status,
-      }),
-      supabase.from("netano_profiles").update({ balance: newBalance }).eq("id", userId),
-    ]);
+    await supabase.from("netano_bets").insert({
+      id: newBet.id,
+      user_id: userId,
+      amount: newBet.amount,
+      picks: newBet.picks,
+      total_odds: newBet.totalOdds,
+      potential_return: newBet.potentialReturn,
+      status: newBet.status,
+    });
   };
 
   const resetAll = () => {
