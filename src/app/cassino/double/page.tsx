@@ -291,7 +291,7 @@ export default function DoublePage() {
     if (phase !== "waiting" || !selectedColor || betAmount <= 0 || betAmount > balance) return;
     if (!userId || !username) return;
     if (limit.blocked) return;
-    const allowed = await spendBetCredits(userId, "double");
+    const allowed = await spendBetCredits(userId, "double", limit.bypass);
     if (!allowed) { limit.onBetSpent("double"); return; }
     limit.onBetSpent("double");
     const { adjustBalance } = await import("@/lib/supabase");

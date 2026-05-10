@@ -308,7 +308,7 @@ export default function SlotsPage() {
     if (spinning || betAmount <= 0 || betAmount > balanceRef.current) return;
     if (!userId || !username) return;
     if (limit.blocked) return;
-    const allowed = await spendBetCredits(userId, "slots");
+    const allowed = await spendBetCredits(userId, "slots", limit.bypass);
     if (!allowed) { limit.onBetSpent("slots"); return; }
     limit.onBetSpent("slots");
     const { adjustBalance } = await import("@/lib/supabase");

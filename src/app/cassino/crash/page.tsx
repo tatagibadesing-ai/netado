@@ -227,7 +227,7 @@ export default function CrashPage() {
     if (betAmount <= 0 || betAmount > balance) return;
     if (!userId || !username) return;
     if (limit.blocked) return;
-    const allowed = await spendBetCredits(userId, "crash");
+    const allowed = await spendBetCredits(userId, "crash", limit.bypass);
     if (!allowed) { limit.onBetSpent("crash"); return; }
     limit.onBetSpent("crash");
     const { adjustBalance } = await import("@/lib/supabase");

@@ -20,15 +20,17 @@ export const BET_CREDITS: Record<string, number> = {
 export interface CasinoLimitState {
   betCreditsUsed: number;
   timeSecsUsed:   number;
-  blocked:        boolean; // true se qualquer limite foi atingido
+  blocked:        boolean;
   betBlocked:     boolean;
   timeBlocked:    boolean;
   loaded:         boolean;
+  bypass:         boolean;
 }
 
 // Gasta créditos de aposta atomicamente via RPC.
 // Retorna true se a aposta foi permitida, false se bloqueada.
-export async function spendBetCredits(userId: string, game: string): Promise<boolean> {
+export async function spendBetCredits(userId: string, game: string, bypass = false): Promise<boolean> {
+  if (bypass) return true;
   const credits = BET_CREDITS[game] ?? 1;
   const { data, error } = await supabase.rpc("casino_spend_bet_credits", {
     uid:         userId,
@@ -49,6 +51,7 @@ export function useCasinoLimit(userId: string | null) {
     betBlocked:     false,
     timeBlocked:    false,
     loaded:         false,
+    bypass:         false,
   });
 
   const intervalRef   = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -78,6 +81,7 @@ export function useCasinoLimit(userId: string | null) {
       timeBlocked:    !bypass && ts >= MAX_TIME_SECS,
       blocked:        !bypass && (bc >= MAX_BET_CREDITS || ts >= MAX_TIME_SECS),
       loaded:         true,
+      bypass,
     });
     sessionStart.current = Date.now();
     lastFlush.current    = 0;

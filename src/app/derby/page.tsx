@@ -345,7 +345,7 @@ export default function DerbyPage() {
   const startRace = async () => {
     if (!userId || !username || isRunning || betAmount <= 0 || betAmount > balanceRef.current) return;
     if (limit.blocked) return;
-    const allowed = await spendBetCredits(userId, "derby");
+    const allowed = await spendBetCredits(userId, "derby", limit.bypass);
     if (!allowed) { limit.onBetSpent("derby"); return; }
     limit.onBetSpent("derby");
     getDerbyAudio();

@@ -194,7 +194,7 @@ export default function MinesPage() {
     if (betAmount <= 0 || betAmount > balance) return;
     if (!userId || !username) return;
     if (limit.blocked) return;
-    const allowed = await spendBetCredits(userId, "mines");
+    const allowed = await spendBetCredits(userId, "mines", limit.bypass);
     if (!allowed) { limit.onBetSpent("mines"); return; }
     limit.onBetSpent("mines");
 
