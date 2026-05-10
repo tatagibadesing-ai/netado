@@ -175,12 +175,12 @@ export function BetProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // IDs de apostas já resolvidas nesta sessão — evita duplo crédito se matches recarregar
+  const resolvedInSessionRef = React.useRef<Set<string>>(new Set());
+
   // ── Bet evaluation ─────────────────────────────────────────────────
   useEffect(() => {
     if (!userId || matches.length === 0 || placedBets.length === 0) return;
-
-    const toUpdate: { id: string; status: "won" | "lost"; picks: SlipItem[] }[] = [];
-    let balanceDelta = 0;
 
     const enrichPickWithScore = (pick: SlipItem, match: Match): SlipItem => ({
       ...pick,
@@ -189,16 +189,19 @@ export function BetProvider({ children }: { children: ReactNode }) {
       resolvedAt: pick.resolvedAt ?? new Date().toISOString(),
     });
 
+    const toResolve: { id: string; status: "won" | "lost"; picks: SlipItem[]; payout: number }[] = [];
+
     const updated = placedBets.map((bet) => {
+      // Já resolvida no banco ou nesta sessão — nunca recreditar
       if (bet.status !== "pending") return bet;
+      if (resolvedInSessionRef.current.has(bet.id)) return bet;
+
       let isPending = false;
       let hasLostPick = false;
 
       for (const pick of bet.picks) {
         const match = matches.find(m => m.id === pick.matchId);
         if (!match) {
-          // No live data for this match. If we already snapshotted a final score,
-          // re-evaluate from the snapshot so a finished bet never reverts to pending.
           if (pick.finalHomeScore !== undefined && pick.finalAwayScore !== undefined) {
             const snapMatch: Match = { ...(matches[0] ?? ({} as Match)), id: pick.matchId, isFinished: true, homeScore: pick.finalHomeScore, awayScore: pick.finalAwayScore } as Match;
             const r = isPickWon(pick, snapMatch);
@@ -219,7 +222,8 @@ export function BetProvider({ children }: { children: ReactNode }) {
           const m = matches.find(mm => mm.id === p.matchId);
           return m && m.isFinished ? enrichPickWithScore(p, m) : p;
         });
-        toUpdate.push({ id: bet.id, status: "lost", picks: snapshotPicks });
+        resolvedInSessionRef.current.add(bet.id);
+        toResolve.push({ id: bet.id, status: "lost", picks: snapshotPicks, payout: 0 });
         return { ...bet, picks: snapshotPicks, status: "lost" as const };
       }
       if (!isPending) {
@@ -227,23 +231,29 @@ export function BetProvider({ children }: { children: ReactNode }) {
           const m = matches.find(mm => mm.id === p.matchId);
           return m && m.isFinished ? enrichPickWithScore(p, m) : p;
         });
-        toUpdate.push({ id: bet.id, status: "won", picks: snapshotPicks });
-        balanceDelta += bet.potentialReturn;
+        resolvedInSessionRef.current.add(bet.id);
+        toResolve.push({ id: bet.id, status: "won", picks: snapshotPicks, payout: bet.potentialReturn });
         return { ...bet, picks: snapshotPicks, status: "won" as const };
       }
       return bet;
     });
 
-    if (toUpdate.length === 0) return;
+    if (toResolve.length === 0) return;
     setPlacedBets(updated);
-    toUpdate.forEach(({ id, status, picks }) =>
-      supabase.from("netano_bets").update({ status, picks }).eq("id", id)
-    );
-    if (balanceDelta > 0) {
-      adjustBalance(userId, balanceDelta).then((nb) => {
+
+    // Atualiza banco e credita — cada aposta de forma independente e atômica
+    toResolve.forEach(async ({ id, status, picks, payout }) => {
+      const { error } = await supabase
+        .from("netano_bets")
+        .update({ status, picks })
+        .eq("id", id)
+        .eq("status", "pending"); // só atualiza se ainda estiver pending no banco
+      if (error) return; // outro dispositivo já resolveu — não creditar
+      if (status === "won" && payout > 0) {
+        const nb = await adjustBalance(userId, payout);
         if (nb !== null) setBalance(nb);
-      });
-    }
+      }
+    });
   }, [matches, userId]);
 
   // ── Slip actions ───────────────────────────────────────────────────
