@@ -656,7 +656,7 @@ export default function PlinkoPage() {
     if (betAmount <= 0 || betAmount > balanceRef.current) return;
     if (!userId || !username) return;
     if (limit.blocked) return;
-    const allowed = await spendBetCredits(userId, "plinko");
+    const allowed = await spendBetCredits(userId, "plinko", limit.bypass);
     if (!allowed) { limit.onBetSpent("plinko"); return; }
     limit.onBetSpent("plinko");
 
