@@ -220,6 +220,7 @@ export default function CrashPage() {
   useEffect(() => { betActiveRef.current = betActive; }, [betActive]);
   const [cashedOut, setCashedOut] = useState<number | null>(null);
   const prevPhase = useRef<CrashPhase>("waiting");
+  const cashingOutRef = useRef(false);
 
   const handleBet = async () => {
     if (phase !== "waiting") return;
@@ -243,14 +244,22 @@ export default function CrashPage() {
   };
 
   const cashOut = async (mult: number) => {
+    // Guard sincrono: impede que o auto-withdraw dispare cashOut multiplas vezes
+    // enquanto o setState de cashedOut/betActive ainda nao foi aplicado.
+    if (cashingOutRef.current) return;
+    if (!betActiveRef.current) return;
+    cashingOutRef.current = true;
+    betActiveRef.current = false;
+
     const winnings = betAmount * mult;
     setCashedOut(mult);
     setBetActive(false);
     playCashout();
-    if (!userId || !username) return;
+    if (!userId || !username) { cashingOutRef.current = false; return; }
     const { adjustBalance } = await import("@/lib/supabase");
     const nb = await adjustBalance(userId, winnings);
     if (nb !== null) login(userId, username, nb);
+    cashingOutRef.current = false;
   };
 
   const handleCashOut = () => {
