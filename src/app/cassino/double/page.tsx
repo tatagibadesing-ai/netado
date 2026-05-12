@@ -232,6 +232,8 @@ export default function DoublePage() {
   const [betActive, setBetActive] = useState(false);
   useEffect(() => { betActiveRef.current = betActive; }, [betActive]);
   const [lastResult, setLastResult] = useState<{ won: boolean; payout: number } | null>(null);
+  // Snapshot do valor apostado no momento da aposta — evita exploit de alterar betAmount durante a rodada
+  const lockedBetAmountRef = useRef(0);
   const prevPhase = useRef<Phase>("waiting");
   const resultSlot = resultIndex !== null ? SLOTS[resultIndex] : null;
 
@@ -239,7 +241,7 @@ export default function DoublePage() {
     if (prevPhase.current === "spinning" && phase === "result" && betActive && resultIndex !== null && selectedColor) {
       const result = SLOTS[resultIndex];
       const won = result.color === selectedColor;
-      const payout = won ? betAmount * MULTIPLIERS[selectedColor] : 0;
+      const payout = won ? lockedBetAmountRef.current * MULTIPLIERS[selectedColor] : 0;
       if (won) {
         playCashout();
         setTimeout(() => playWin(), 150);
@@ -297,6 +299,7 @@ export default function DoublePage() {
     const { adjustBalance } = await import("@/lib/supabase");
     const nb = await adjustBalance(userId, -betAmount);
     if (nb === null) return;
+    lockedBetAmountRef.current = betAmount;
     betCountRef.current += 1;
     localStorage.setItem(`double_bet_count_${userId}`, String(betCountRef.current));
     betActiveRef.current = true;
@@ -353,14 +356,14 @@ export default function DoublePage() {
             <label className="text-xs text-white/40 font-medium block mb-1.5">Quantia</label>
             <div className="flex items-center gap-2 bg-[#0d0d0d] rounded px-3 py-2.5">
               <span className="text-white/40 text-xs font-medium">R$</span>
-              <input type="number" value={betAmount}
+              <input type="number" value={betAmount} disabled={betActive || phase === "spinning"}
                 onChange={e => setBetAmount(Math.max(1, Number(e.target.value)))}
-                className="flex-1 bg-transparent text-white text-sm font-semibold outline-none w-0" />
+                className="flex-1 bg-transparent text-white text-sm font-semibold outline-none w-0 disabled:opacity-50" />
               <div className="flex gap-1">
-                <button onClick={() => setBetAmount(v => Math.max(1, Math.floor(v / 2)))}
-                  className="text-xs px-2 py-1 bg-white/5 hover:bg-white/10 text-white/50 rounded font-medium transition-colors">½</button>
-                <button onClick={() => setBetAmount(v => v * 2)}
-                  className="text-xs px-2 py-1 bg-white/5 hover:bg-white/10 text-white/50 rounded font-medium transition-colors">2x</button>
+                <button onClick={() => setBetAmount(v => Math.max(1, Math.floor(v / 2)))} disabled={betActive || phase === "spinning"}
+                  className="text-xs px-2 py-1 bg-white/5 hover:bg-white/10 text-white/50 rounded font-medium transition-colors disabled:opacity-40">½</button>
+                <button onClick={() => setBetAmount(v => v * 2)} disabled={betActive || phase === "spinning"}
+                  className="text-xs px-2 py-1 bg-white/5 hover:bg-white/10 text-white/50 rounded font-medium transition-colors disabled:opacity-40">2x</button>
               </div>
             </div>
           </div>
@@ -449,13 +452,13 @@ export default function DoublePage() {
               <label className="text-xs text-white/40 font-medium block mb-1.5">Quantia</label>
               <div className="flex items-center gap-1.5 bg-[#0d0d0d] rounded px-2.5 py-2">
                 <span className="text-white/40 text-xs">R$</span>
-                <input type="number" value={betAmount}
+                <input type="number" value={betAmount} disabled={betActive || phase === "spinning"}
                   onChange={e => setBetAmount(Math.max(1, Number(e.target.value)))}
-                  className="flex-1 bg-transparent text-white text-sm font-semibold outline-none w-0" />
-                <button onClick={() => setBetAmount(v => Math.max(1, Math.floor(v / 2)))}
-                  className="text-xs px-1.5 py-0.5 bg-white/5 hover:bg-white/10 text-white/50 rounded font-medium">½</button>
-                <button onClick={() => setBetAmount(v => v * 2)}
-                  className="text-xs px-1.5 py-0.5 bg-white/5 hover:bg-white/10 text-white/50 rounded font-medium">2x</button>
+                  className="flex-1 bg-transparent text-white text-sm font-semibold outline-none w-0 disabled:opacity-50" />
+                <button onClick={() => setBetAmount(v => Math.max(1, Math.floor(v / 2)))} disabled={betActive || phase === "spinning"}
+                  className="text-xs px-1.5 py-0.5 bg-white/5 hover:bg-white/10 text-white/50 rounded font-medium disabled:opacity-40">½</button>
+                <button onClick={() => setBetAmount(v => v * 2)} disabled={betActive || phase === "spinning"}
+                  className="text-xs px-1.5 py-0.5 bg-white/5 hover:bg-white/10 text-white/50 rounded font-medium disabled:opacity-40">2x</button>
               </div>
             </div>
           </div>
