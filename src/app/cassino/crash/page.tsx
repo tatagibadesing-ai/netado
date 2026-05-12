@@ -221,6 +221,9 @@ export default function CrashPage() {
   const [cashedOut, setCashedOut] = useState<number | null>(null);
   const prevPhase = useRef<CrashPhase>("waiting");
   const cashingOutRef = useRef(false);
+  // Snapshot do valor apostado no momento da aposta — usar isto para calcular
+  // winnings, NUNCA o state `betAmount` que o usuario pode alterar durante a rodada.
+  const lockedBetAmountRef = useRef(0);
 
   const handleBet = async () => {
     if (phase !== "waiting") return;
@@ -234,6 +237,7 @@ export default function CrashPage() {
     const { adjustBalance } = await import("@/lib/supabase");
     const nb = await adjustBalance(userId, -betAmount);
     if (nb === null) return;
+    lockedBetAmountRef.current = betAmount;
     betCountRef.current += 1;
     localStorage.setItem(`crash_bet_count_${userId}`, String(betCountRef.current));
     betActiveRef.current = true;
@@ -251,7 +255,7 @@ export default function CrashPage() {
     cashingOutRef.current = true;
     betActiveRef.current = false;
 
-    const winnings = betAmount * mult;
+    const winnings = lockedBetAmountRef.current * mult;
     setCashedOut(mult);
     setBetActive(false);
     playCashout();
@@ -362,14 +366,14 @@ export default function CrashPage() {
             <label className="text-xs text-white/40 font-medium block mb-1.5">Quantia</label>
             <div className="flex items-center gap-2 bg-[#0d0d0d] rounded px-3 py-2.5 border border-white/5">
               <span className="text-white/40 text-xs font-medium">R$</span>
-              <input type="number" value={betAmount}
+              <input type="number" value={betAmount} disabled={betActive}
                 onChange={e => setBetAmount(Math.max(1, Number(e.target.value)))}
-                className="flex-1 bg-transparent text-white text-sm font-semibold outline-none w-0" />
+                className="flex-1 bg-transparent text-white text-sm font-semibold outline-none w-0 disabled:opacity-50" />
               <div className="flex gap-1">
-                <button onClick={() => setBetAmount(v => Math.max(1, Math.floor(v / 2)))}
-                  className="text-xs px-2 py-1 bg-white/5 hover:bg-white/10 text-white/50 rounded font-medium transition-colors">½</button>
-                <button onClick={() => setBetAmount(v => v * 2)}
-                  className="text-xs px-2 py-1 bg-white/5 hover:bg-white/10 text-white/50 rounded font-medium transition-colors">2x</button>
+                <button onClick={() => setBetAmount(v => Math.max(1, Math.floor(v / 2)))} disabled={betActive}
+                  className="text-xs px-2 py-1 bg-white/5 hover:bg-white/10 text-white/50 rounded font-medium transition-colors disabled:opacity-40">½</button>
+                <button onClick={() => setBetAmount(v => v * 2)} disabled={betActive}
+                  className="text-xs px-2 py-1 bg-white/5 hover:bg-white/10 text-white/50 rounded font-medium transition-colors disabled:opacity-40">2x</button>
               </div>
             </div>
           </div>
@@ -463,13 +467,13 @@ export default function CrashPage() {
               <label className="text-xs text-white/40 font-medium block mb-1.5">Quantia</label>
               <div className="flex items-center gap-1.5 bg-[#0d0d0d] rounded px-2.5 py-2">
                 <span className="text-white/40 text-xs">R$</span>
-                <input type="number" value={betAmount}
+                <input type="number" value={betAmount} disabled={betActive}
                   onChange={e => setBetAmount(Math.max(1, Number(e.target.value)))}
-                  className="flex-1 bg-transparent text-white text-sm font-semibold outline-none w-0" />
-                <button onClick={() => setBetAmount(v => Math.max(1, Math.floor(v / 2)))}
-                  className="text-xs px-1.5 py-0.5 bg-white/5 hover:bg-white/10 text-white/50 rounded font-medium">½</button>
-                <button onClick={() => setBetAmount(v => v * 2)}
-                  className="text-xs px-1.5 py-0.5 bg-white/5 hover:bg-white/10 text-white/50 rounded font-medium">2x</button>
+                  className="flex-1 bg-transparent text-white text-sm font-semibold outline-none w-0 disabled:opacity-50" />
+                <button onClick={() => setBetAmount(v => Math.max(1, Math.floor(v / 2)))} disabled={betActive}
+                  className="text-xs px-1.5 py-0.5 bg-white/5 hover:bg-white/10 text-white/50 rounded font-medium disabled:opacity-40">½</button>
+                <button onClick={() => setBetAmount(v => v * 2)} disabled={betActive}
+                  className="text-xs px-1.5 py-0.5 bg-white/5 hover:bg-white/10 text-white/50 rounded font-medium disabled:opacity-40">2x</button>
               </div>
             </div>
             <div className="flex-1">
