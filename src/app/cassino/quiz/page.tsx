@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useBet } from "@/context/BetContext";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 
 const ACCENT   = "#FF3C00";
 const PAGE_BG  = "#0d0d0d";
@@ -178,14 +179,123 @@ const QUESTIONS: Question[] = [
 
 /* ── Ranking (top scores armazenados localmente) ────── */
 
-interface ScoreEntry { username: string; score: number; correct: number; date: string; }
+type AvatarBaseId = "ufo-cacto" | "gel-plug" | "dado-mago" | "lua-chef" | "gato-cogumelo" | "lava-skater";
+type AvatarColorId = "original" | "slime" | "arcade" | "lunar" | "quente";
+type AvatarOutfitId = "none" | "raio" | "orbita" | "glitch" | "medalha";
+type AvatarConfig = { base: AvatarBaseId; color: AvatarColorId; outfit: AvatarOutfitId; };
 
-function getScores(): ScoreEntry[] {
-  try { return JSON.parse(localStorage.getItem("quiz_scores") || "[]"); } catch { return []; }
+interface ScoreEntry { username: string; score: number; correct: number; date: string; avatar?: AvatarConfig; }
+
+const AVATAR_BASES: { id: AvatarBaseId; label: string; image: string; tone: string }[] = [
+  { id: "ufo-cacto", label: "UFO Cacto", image: "/quiz-characters/ufo-cacto.png", tone: "#FF3C00" },
+  { id: "gel-plug", label: "Gel Plug", image: "/quiz-characters/gel-plug.png", tone: "#B45CFF" },
+  { id: "dado-mago", label: "Dado Mago", image: "/quiz-characters/dado-mago.png", tone: "#00C2B8" },
+  { id: "lua-chef", label: "Lua Chef", image: "/quiz-characters/lua-chef.png", tone: "#F7D46A" },
+  { id: "gato-cogumelo", label: "Gato Cone", image: "/quiz-characters/gato-cogumelo.png", tone: "#FF7A1A" },
+  { id: "lava-skater", label: "Lava Skate", image: "/quiz-characters/lava-skater.png", tone: "#1DCFD1" },
+];
+
+const AVATAR_COLORS: { id: AvatarColorId; label: string; swatch: string; filter: string }[] = [
+  { id: "original", label: "Original", swatch: ACCENT, filter: "none" },
+  { id: "slime", label: "Slime", swatch: GREEN, filter: "hue-rotate(76deg) saturate(1.16) contrast(1.04)" },
+  { id: "arcade", label: "Arcade", swatch: "#1368CE", filter: "hue-rotate(188deg) saturate(1.2) contrast(1.05)" },
+  { id: "lunar", label: "Lunar", swatch: "#f5f5f5", filter: "grayscale(0.24) saturate(0.88) brightness(1.05)" },
+  { id: "quente", label: "Quente", swatch: "#E21B3C", filter: "hue-rotate(320deg) saturate(1.28) contrast(1.04)" },
+];
+
+const AVATAR_OUTFITS: { id: AvatarOutfitId; label: string }[] = [
+  { id: "none", label: "Basico" },
+  { id: "raio", label: "Raio" },
+  { id: "orbita", label: "Orbita" },
+  { id: "glitch", label: "Glitch" },
+  { id: "medalha", label: "Medalha" },
+];
+
+const AVATAR_OUTFIT_ASSETS: Record<Exclude<AvatarOutfitId, "none">, { src: string; className: string; sizes: string }> = {
+  raio: {
+    src: "/quiz-artifacts/raio.png",
+    className: "right-[3%] top-[1%] h-[34%] w-[34%] rotate-12",
+    sizes: "60px",
+  },
+  orbita: {
+    src: "/quiz-artifacts/orbita.png",
+    className: "inset-[1%] h-[98%] w-[98%]",
+    sizes: "176px",
+  },
+  glitch: {
+    src: "/quiz-artifacts/glitch.png",
+    className: "left-[2%] top-[32%] h-[30%] w-[42%] -rotate-6",
+    sizes: "74px",
+  },
+  medalha: {
+    src: "/quiz-artifacts/medalha.png",
+    className: "bottom-[2%] right-[2%] h-[32%] w-[32%]",
+    sizes: "56px",
+  },
+};
+
+const DEFAULT_AVATAR: AvatarConfig = { base: "ufo-cacto", color: "original", outfit: "none" };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
-function saveScore(entry: ScoreEntry) {
-  const scores = [entry, ...getScores()].sort((a, b) => b.score - a.score).slice(0, 10);
-  localStorage.setItem("quiz_scores", JSON.stringify(scores));
+
+function isAvatarBase(value: unknown): value is AvatarBaseId {
+  return typeof value === "string" && AVATAR_BASES.some(item => item.id === value);
+}
+
+function isAvatarColor(value: unknown): value is AvatarColorId {
+  return typeof value === "string" && AVATAR_COLORS.some(item => item.id === value);
+}
+
+function isAvatarOutfit(value: unknown): value is AvatarOutfitId {
+  return typeof value === "string" && AVATAR_OUTFITS.some(item => item.id === value);
+}
+
+function normalizeAvatar(value: unknown): AvatarConfig {
+  if (!isRecord(value)) return DEFAULT_AVATAR;
+  const savedColor = isAvatarColor(value.color) ? value.color : isAvatarColor(value.outfit) ? value.outfit : DEFAULT_AVATAR.color;
+  const savedOutfit = isAvatarOutfit(value.outfit) ? value.outfit : isAvatarOutfit(value.accessory) ? value.accessory : DEFAULT_AVATAR.outfit;
+
+  return {
+    base: isAvatarBase(value.base) ? value.base : DEFAULT_AVATAR.base,
+    color: savedColor,
+    outfit: savedOutfit,
+  };
+}
+
+function getSavedAvatar(): AvatarConfig {
+  try { return normalizeAvatar(JSON.parse(localStorage.getItem("quiz_avatar") || "null")); } catch { return DEFAULT_AVATAR; }
+}
+
+async function fetchTopScores(): Promise<ScoreEntry[]> {
+  const { supabase } = await import("@/lib/supabase");
+  const { data, error } = await supabase
+    .from("quiz_scores")
+    .select("username, score, correct, created_at, avatar")
+    .order("score", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(10);
+  if (error || !data) return [];
+  return data.map((d: { username: string; score: number; correct: number; created_at: string; avatar: AvatarConfig | null }) => ({
+    username: d.username,
+    score: d.score,
+    correct: d.correct,
+    date: new Date(d.created_at).toLocaleDateString("pt-BR"),
+    avatar: d.avatar ?? undefined,
+  }));
+}
+
+async function saveScoreToDb(userId: string, entry: ScoreEntry) {
+  const { supabase } = await import("@/lib/supabase");
+  await supabase.from("quiz_scores").insert({
+    user_id: userId,
+    username: entry.username,
+    score: entry.score,
+    correct: entry.correct,
+    total: 8,
+    avatar: entry.avatar ?? null,
+  });
 }
 
 function AnswerSymbol({ index }: { index: number }) {
@@ -201,7 +311,45 @@ function AnswerSymbol({ index }: { index: number }) {
   return <span className="h-10 w-10 bg-white md:h-[52px] md:w-[52px]" />;
 }
 
-/* ── Timer Bar ────────────────────────────────────────── */
+/* ── Avatar ────────────────────────────────────────── */
+function AvatarOutfitLayer({ outfit }: { outfit: AvatarOutfitId }) {
+  if (outfit === "none") return null;
+  const artifact = AVATAR_OUTFIT_ASSETS[outfit];
+
+  return (
+    <Image
+      src={artifact.src}
+      alt=""
+      width={256}
+      height={256}
+      sizes={artifact.sizes}
+      draggable={false}
+      className={`pointer-events-none absolute object-contain drop-shadow-[0_10px_14px_rgba(0,0,0,0.45)] ${artifact.className}`}
+    />
+  );
+}
+
+function AvatarDisplay({ avatar, className = "" }: { avatar: AvatarConfig; className?: string }) {
+  const base = AVATAR_BASES.find(item => item.id === avatar.base) ?? AVATAR_BASES[0];
+  const color = AVATAR_COLORS.find(item => item.id === avatar.color) ?? AVATAR_COLORS[0];
+
+  return (
+    <div className={`relative isolate ${className}`} role="img" aria-label={`Avatar ${base.label}`}>
+      <Image
+        src={base.image}
+        alt=""
+        width={512}
+        height={512}
+        sizes="176px"
+        className="h-full w-full object-contain"
+        draggable={false}
+        style={{ filter: `${color.filter} drop-shadow(0 14px 20px rgba(0,0,0,0.32))` }}
+      />
+      <AvatarOutfitLayer outfit={avatar.outfit} />
+    </div>
+  );
+}
+
 function TimerBar({
   duration,
   onEnd,
@@ -245,7 +393,7 @@ function TimerBar({
 }
 
 /* ── Quiz Page ────────────────────────────────────────── */
-type Phase = "lobby" | "playing" | "result" | "ranking";
+type Phase = "lobby" | "mascot" | "playing" | "result" | "ranking";
 
 export default function QuizPage() {
   const router = useRouter();
@@ -259,16 +407,27 @@ export default function QuizPage() {
   const [correctCount, setCorrectCount] = useState(0);
   const [totalWon, setTotalWon] = useState(0);
   const [totalLost, setTotalLost] = useState(0);
-  const [timeUp, setTimeUp] = useState(false);
   const [timerRunning, setTimerRunning] = useState(false);
   const [moneyFlash, setMoneyFlash] = useState<{ id: number; amount: number; won: boolean } | null>(null);
-  const [scores, setScores] = useState<ScoreEntry[]>(() =>
-    typeof window === "undefined" ? [] : getScores()
+  const [scores, setScores] = useState<ScoreEntry[]>([]);
+
+  // Carrega o top 10 global do banco sempre que entrar no ranking ou no result
+  useEffect(() => {
+    if (phase === "ranking" || phase === "result") {
+      fetchTopScores().then(setScores);
+    }
+  }, [phase]);
+  const [avatar, setAvatar] = useState<AvatarConfig>(() =>
+    typeof window === "undefined" ? DEFAULT_AVATAR : getSavedAvatar()
   );
   const flashIdRef = useRef(0);
 
   const q = QUESTIONS[current];
   const TIMER = 20;
+
+  useEffect(() => {
+    localStorage.setItem("quiz_avatar", JSON.stringify(avatar));
+  }, [avatar]);
 
   function startGame() {
     if (betAmount <= 0 || betAmount > balance) return;
@@ -279,8 +438,12 @@ export default function QuizPage() {
     setCorrectCount(0);
     setTotalWon(0);
     setTotalLost(0);
-    setTimeUp(false);
     setMoneyFlash(null);
+    setTimerRunning(false);
+    setPhase("mascot");
+  }
+
+  function startQuestions() {
     setTimerRunning(true);
     setPhase("playing");
   }
@@ -316,7 +479,6 @@ export default function QuizPage() {
 
   function handleTimeUp() {
     if (answered) return;
-    setTimeUp(true);
     setAnswered(true);
     setTimerRunning(false);
     setTotalLost(l => l + betAmount);
@@ -342,15 +504,16 @@ export default function QuizPage() {
         score: Math.round(totalWon - totalLost),
         correct: correctCount,
         date: new Date().toLocaleDateString("pt-BR"),
+        avatar,
       };
-      saveScore(entry);
-      setScores(getScores());
+      if (userId) {
+        saveScoreToDb(userId, entry).then(() => fetchTopScores().then(setScores));
+      }
       setPhase("result");
     } else {
       setCurrent(c => c + 1);
       setSelected(null);
       setAnswered(false);
-      setTimeUp(false);
       setMoneyFlash(null);
       setTimerRunning(true);
     }
@@ -359,6 +522,15 @@ export default function QuizPage() {
   const finalCorrect = correctCount;
   const canStart = betAmount > 0 && betAmount <= balance;
   const totalPotential = betAmount * QUESTIONS.reduce((sum, item) => sum + item.multiplier, 0);
+  const selectedMascotIndex = Math.max(0, AVATAR_BASES.findIndex(item => item.id === avatar.base));
+  const selectedMascot = AVATAR_BASES[selectedMascotIndex] ?? AVATAR_BASES[0];
+  const previousMascot = AVATAR_BASES[(selectedMascotIndex - 1 + AVATAR_BASES.length) % AVATAR_BASES.length];
+  const nextMascot = AVATAR_BASES[(selectedMascotIndex + 1) % AVATAR_BASES.length];
+
+  function cycleMascot(direction: -1 | 1) {
+    const nextIndex = (selectedMascotIndex + direction + AVATAR_BASES.length) % AVATAR_BASES.length;
+    setAvatar(currentAvatar => ({ ...currentAvatar, base: AVATAR_BASES[nextIndex].id }));
+  }
 
   const renderBetControls = (className = "") => (
     <div className={`flex flex-col gap-4 ${className}`}>
@@ -425,7 +597,118 @@ export default function QuizPage() {
     </div>
   );
 
-  /* ── Lobby ── */
+  /* ── Mascot ── */
+  const renderMascotControls = () => (
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 text-left">
+      <div>
+        <div className="relative flex min-h-[340px] items-center justify-center overflow-hidden md:min-h-[390px]">
+          <button
+            type="button"
+            onClick={() => cycleMascot(-1)}
+            className="absolute left-[calc(50%-180px)] z-10 grid h-11 w-11 place-items-center text-white/45 transition-colors hover:text-white md:left-[calc(50%-230px)] md:h-12 md:w-12"
+            title="Mascote anterior"
+          >
+            <ChevronLeft size={24} />
+          </button>
+
+          <div className="pointer-events-none absolute left-[calc(50%-305px)] hidden opacity-25 brightness-50 sm:block md:left-[calc(50%-390px)]">
+            <AvatarDisplay avatar={{ ...avatar, base: previousMascot.id }} className="h-44 w-44 md:h-56 md:w-56" />
+          </div>
+
+          <div className="pointer-events-none absolute right-[calc(50%-305px)] hidden opacity-25 brightness-50 sm:block md:right-[calc(50%-390px)]">
+            <AvatarDisplay avatar={{ ...avatar, base: nextMascot.id }} className="h-44 w-44 md:h-56 md:w-56" />
+          </div>
+
+          <div className="relative z-10 flex flex-col items-center justify-center gap-3 overflow-hidden">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={avatar.base}
+                initial={{ opacity: 0, x: 26 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -26 }}
+                transition={{ duration: 0.16 }}
+                className="flex flex-col items-center gap-3"
+              >
+                <AvatarDisplay avatar={avatar} className="h-64 w-64 md:h-80 md:w-80" />
+                <div className="text-center">
+                  <p className="text-base font-black text-white">{selectedMascot.label}</p>
+                  <p className="text-xs font-medium text-white/35">
+                    {selectedMascotIndex + 1} / {AVATAR_BASES.length}
+                  </p>
+                </div>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => cycleMascot(1)}
+            className="absolute right-[calc(50%-180px)] z-10 grid h-11 w-11 place-items-center text-white/45 transition-colors hover:text-white md:right-[calc(50%-230px)] md:h-12 md:w-12"
+            title="Proximo mascote"
+          >
+            <ChevronRight size={24} />
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <p className="mb-2 text-xs font-black uppercase tracking-wide text-white/30">Cor</p>
+        <div className="grid grid-cols-5 gap-2">
+          {AVATAR_COLORS.map(item => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setAvatar(currentAvatar => ({ ...currentAvatar, color: item.id }))}
+              className="h-11 rounded transition-transform active:scale-95"
+              style={{
+                background: item.swatch,
+                outline: avatar.color === item.id ? "2px solid white" : "1px solid rgba(255,255,255,0.14)",
+              }}
+              title={item.label}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <p className="mb-2 text-xs font-black uppercase tracking-wide text-white/30">Traje</p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+          {AVATAR_OUTFITS.map(item => {
+            const selected = avatar.outfit === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setAvatar(currentAvatar => ({ ...currentAvatar, outfit: item.id }))}
+                className="flex h-14 items-center justify-center rounded px-2 text-xs font-bold transition-colors"
+                style={{
+                  background: selected ? ACCENT : "transparent",
+                  color: selected ? "white" : "rgba(255,255,255,0.55)",
+                  outline: selected ? "none" : "1px solid rgba(255,255,255,0.08)",
+                }}
+                title={item.label}
+              >
+                {item.id === "none" ? (
+                  item.label
+                ) : (
+                  <Image src={AVATAR_OUTFIT_ASSETS[item.id].src} alt="" width={40} height={40} className="h-10 w-10 object-contain" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <button
+        onClick={startQuestions}
+        className="w-full rounded py-3.5 text-sm font-bold text-white transition-transform active:scale-95"
+        style={{ background: ACCENT }}
+      >
+        Comecar perguntas
+      </button>
+    </div>
+  );
+
   if (phase === "lobby") return (
     <div className="flex-1 flex flex-col bg-[#0d0d0d] min-h-0">
       <div className="flex items-center justify-between px-6 py-3 bg-[#111]">
@@ -453,18 +736,54 @@ export default function QuizPage() {
             className="w-full max-w-5xl text-center"
           >
             <p className="text-white/45 text-sm font-semibold mb-3">Netano Originals</p>
-            <h1 className="text-white text-4xl md:text-7xl font-black leading-none mb-4">
-              Quiz
-            </h1>
-            <p className="text-white/55 text-base md:text-2xl font-medium">
-              Responda rápido, escolha uma cor e avance pergunta por pergunta.
+            <h1 className="text-white text-4xl md:text-6xl font-black leading-none mb-3">Quiz</h1>
+            <p className="text-white/55 text-sm md:text-lg font-medium mb-6">
+              Configure sua aposta e comece quando estiver pronto.
             </p>
+            <div className="mx-auto grid max-w-3xl grid-cols-3 gap-2 text-left sm:gap-3">
+              <div className="rounded bg-[#111] p-2.5 sm:p-4">
+                <p className="text-[10px] sm:text-xs font-black uppercase tracking-wide text-white/35">Perguntas</p>
+                <p className="mt-1 sm:mt-2 text-lg sm:text-2xl font-black text-white">{QUESTIONS.length}</p>
+              </div>
+              <div className="rounded bg-[#111] p-2.5 sm:p-4">
+                <p className="text-[10px] sm:text-xs font-black uppercase tracking-wide text-white/35">Tempo</p>
+                <p className="mt-1 sm:mt-2 text-lg sm:text-2xl font-black text-white">{TIMER}s</p>
+              </div>
+              <div className="rounded bg-[#111] p-2.5 sm:p-4">
+                <p className="text-[10px] sm:text-xs font-black uppercase tracking-wide text-white/35">Maximo</p>
+                <p className="mt-1 sm:mt-2 text-lg sm:text-2xl font-black text-white">R$ {totalPotential.toFixed(0)}</p>
+              </div>
+            </div>
           </motion.div>
         </div>
 
         <div className="md:hidden bg-[#111] flex flex-col gap-3 p-4">
           {renderBetControls()}
         </div>
+      </div>
+    </div>
+  );
+
+  if (phase === "mascot") return (
+    <div className="flex-1 flex flex-col bg-[#0d0d0d] min-h-0">
+      <div className="flex items-center justify-between px-6 py-3 bg-[#111]">
+        <button onClick={() => setPhase("lobby")}
+          className="flex items-center gap-1.5 text-white/50 hover:text-white transition-colors text-sm font-medium">
+          <ArrowLeft size={16} /> Voltar
+        </button>
+        <span className="text-white text-sm font-semibold">Escolha o mascote</span>
+        <span className="text-white/40 text-xs">R$ {betAmount.toFixed(2)}</span>
+      </div>
+
+      <div className="flex-1 overflow-y-auto flex items-center justify-center px-4 py-6 md:p-8">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.18 }}
+          className="w-full max-w-4xl text-center"
+        >
+          {renderMascotControls()}
+        </motion.div>
       </div>
     </div>
   );
@@ -495,6 +814,7 @@ export default function QuizPage() {
               <span className="w-7 text-center text-sm font-bold" style={{ color: i < 3 ? "white" : "rgba(255,255,255,0.3)" }}>
                 {i + 1}
               </span>
+              <AvatarDisplay avatar={normalizeAvatar(s.avatar)} className="h-12 w-12 shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-white text-sm font-semibold truncate">{s.username}</p>
                 <p className="text-white/30 text-xs">{s.correct}/8 corretas · {s.date}</p>
@@ -575,8 +895,6 @@ export default function QuizPage() {
   }
 
   /* ── Playing ── */
-  const isCorrect = selected === q.correct;
-
   return (
     <div className="flex-1 flex flex-col min-h-0" style={{ background: PAGE_BG }}>
       {/* Topbar */}
@@ -672,25 +990,6 @@ export default function QuizPage() {
             );
           })}
         </div>
-
-        {/* Feedback */}
-        <AnimatePresence>
-          {answered && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.16 }}
-              className="w-full rounded p-4 md:p-5"
-              style={{
-                background: timeUp ? "#161616" : isCorrect ? "rgba(7,227,133,0.13)" : "rgba(226,27,60,0.13)",
-              }}>
-              <p className="font-bold text-sm mb-1 md:text-lg"
-                style={{ color: timeUp ? "#9CA3AF" : isCorrect ? GREEN : "#E21B3C" }}>
-                {timeUp ? "Tempo esgotado! -R$ " + betAmount.toFixed(2)
-                  : isCorrect ? `Correto! +R$ ${(betAmount * q.multiplier).toFixed(2)}`
-                  : `Errado! -R$ ${betAmount.toFixed(2)}`}
-              </p>
-              <p className="text-white/50 text-xs leading-relaxed md:text-sm">{q.explanation}</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Next button */}
         <AnimatePresence>

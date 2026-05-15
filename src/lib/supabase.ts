@@ -15,10 +15,20 @@ export async function adjustBalance(userId: string, delta: number): Promise<numb
     delta_amount: delta,
   })
   if (error) {
-    console.error('adjust_balance failed', error)
+    console.error('adjust_balance failed', error, { userId, delta })
     return null
   }
-  return typeof data === 'number' ? data : null
+  if (data === null || data === undefined) {
+    console.warn('adjust_balance returned null (insufficient funds?)', { userId, delta })
+    return null
+  }
+  // Postgres `numeric` arrives as string in some PostgREST versions; coerce.
+  const n = typeof data === 'number' ? data : parseFloat(String(data))
+  if (Number.isNaN(n)) {
+    console.error('adjust_balance returned non-numeric', data)
+    return null
+  }
+  return n
 }
 
 // Read the canonical balance from the server. Use this whenever local cache
