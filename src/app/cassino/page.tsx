@@ -15,7 +15,7 @@ const GAMES = [
   { id: "slots",  name: "Slots",  label: "Netano Originals", img: "/Slotmachinenetano.webp", accent: "#FF3C00" },
   { id: "plinko", name: "Plinko", label: "Netano Originals", img: "/plinkogamenetano.webp",  accent: "#FF3C00" },
   { id: "dice",   name: "Dice",   label: "Netano Originals", img: "/dicenetano.webp",        accent: "#FF3C00" },
-  // { id: "quiz",   name: "Quiz",   label: "Netano Originals", img: "/quiznetano.webp",        accent: "#FF3C00" },
+  { id: "quiz",   name: "Quiz",   label: "Netano Originals", img: "/quiznetano.webp",        accent: "#FF3C00" },
 ];
 
 /* ── Coming Soon Modal ───────────────────────────────── */
@@ -152,7 +152,7 @@ export default function CassinoPage() {
       router.push("/derby");
       return;
     }
-    if (id === "crash" || id === "double" || id === "mines" || id === "dice" || id === "plinko" || id === "slots") {
+    if (id === "crash" || id === "double" || id === "mines" || id === "dice" || id === "plinko" || id === "slots" || id === "quiz") {
       router.push(`/cassino/${id}`);
     } else {
       setActiveGame(id);
