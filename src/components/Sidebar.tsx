@@ -23,8 +23,8 @@ export function Sidebar() {
   const allLeagues = Array.from(allLeaguesSet).sort((a, b) => a.localeCompare(b, "pt-BR"));
 
   return (
-    <aside className="hidden lg:flex flex-col w-[260px] shrink-0 bg-[#121212] border-r border-white/5 h-[calc(100vh-64px)] sticky top-[64px] overflow-hidden">
-      <div className="p-4 border-b border-white/5 bg-[#181818]">
+    <aside className="hidden lg:flex flex-col w-[260px] shrink-0 bg-[#080808] h-[calc(100vh-64px)] sticky top-[64px] overflow-hidden">
+      <div className="p-4">
         <h3 className="font-bold text-white uppercase tracking-wide text-xs">
           Esportes / Competições
         </h3>

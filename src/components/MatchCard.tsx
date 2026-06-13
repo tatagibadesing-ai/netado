@@ -69,9 +69,9 @@ export function MatchCard({ match }: { match: Match }) {
       {isCopaDoMundo && (
         <>
           <div 
-            className="absolute top-0 left-0 right-0 pointer-events-none opacity-95 z-0"
+            className="absolute -top-4 left-0 right-0 pointer-events-none opacity-100 z-0"
             style={{
-              height: "50%",
+              height: "55%",
               backgroundImage: "url('/svgpartedacopa.svg')",
               backgroundSize: "100% 100%",
               backgroundPosition: "top center",

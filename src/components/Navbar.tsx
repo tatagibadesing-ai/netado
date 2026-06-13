@@ -51,7 +51,7 @@ export function Navbar() {
 
   return (
     <>
-      <header className={`bg-[#FF3C00] sticky top-0 z-50 relative overflow-hidden transition-colors duration-500`}>
+      <header className={`sticky top-0 z-50 relative overflow-hidden transition-colors duration-500 ${pathname === "/apostasesportivas" && selectedLeague === "Copa do Mundo" ? "bg-[#080808]" : "bg-[#FF3C00]"}`}>
         {pathname === "/apostasesportivas" && selectedLeague === "Copa do Mundo" && (
           <div 
             className="absolute inset-0 pointer-events-none z-0"
@@ -60,9 +60,9 @@ export function Navbar() {
               backgroundSize: "cover",
               backgroundPosition: "top center",
               backgroundRepeat: "no-repeat",
-              maskImage: "linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%)",
-              WebkitMaskImage: "linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%)",
-              opacity: 0.8
+              maskImage: "linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)",
+              WebkitMaskImage: "linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)",
+              opacity: 1
             }}
           />
         )}
@@ -83,9 +83,9 @@ export function Navbar() {
             <div className="md:hidden flex items-center gap-2">
               <button
                 onClick={() => setShowFriends(true)}
-                className="relative w-8 h-8 bg-white/20 rounded-full flex items-center justify-center shrink-0"
+                className="relative w-8 h-8 flex items-center justify-center shrink-0"
               >
-                <Users className="w-4 h-4 text-white" />
+                <Users className="w-5 h-5 text-white" />
                 {pendingCount > 0 && (
                   <span className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full text-[#FF3C00] text-[10px] font-black flex items-center justify-center">
                     {pendingCount}
@@ -97,8 +97,8 @@ export function Navbar() {
                   R$ {balance.toFixed(2)}
                 </span>
               </div>
-              <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center shrink-0">
-                <Wallet className="w-4 h-4 text-white" />
+              <div className="w-8 h-8 flex items-center justify-center shrink-0">
+                <Wallet className="w-5 h-5 text-white" />
               </div>
             </div>
           </div>

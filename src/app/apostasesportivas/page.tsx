@@ -344,12 +344,15 @@ export default function ApostasEsportivas() {
                                 <div className="bg-[#121212] p-6 rounded-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-xl">
                                   {/* SVG backdrop */}
                                   <div 
-                                    className="absolute inset-0 pointer-events-none opacity-30 z-0"
+                                    className="absolute -top-8 left-0 right-0 pointer-events-none opacity-100 z-0"
                                     style={{
+                                      height: "140px",
                                       backgroundImage: "url('/svgpartedacopa.svg')",
-                                      backgroundSize: "cover",
-                                      backgroundPosition: "center",
+                                      backgroundSize: "100% 100%",
+                                      backgroundPosition: "top center",
                                       backgroundRepeat: "no-repeat",
+                                      maskImage: "linear-gradient(to bottom, rgba(0,0,0,1) 10%, rgba(0,0,0,0) 100%)",
+                                      WebkitMaskImage: "linear-gradient(to bottom, rgba(0,0,0,1) 10%, rgba(0,0,0,0) 100%)",
                                     }}
                                   />
                                   <div className="relative z-10 flex flex-col gap-1.5 w-full">
@@ -451,20 +454,15 @@ export default function ApostasEsportivas() {
                         <div className="bg-[#121212] rounded-xl border border-white/5 overflow-hidden relative shadow-2xl">
                           {/* Discrete SVG background in header area */}
                           <div 
-                            className="absolute top-0 left-0 right-0 pointer-events-none opacity-[0.55] z-0"
+                            className="absolute top-0 left-0 right-0 pointer-events-none opacity-100 z-0"
                             style={{
                               height: "80px",
                               backgroundImage: "url('/svgpartedacopa.svg')",
                               backgroundSize: "cover",
                               backgroundPosition: "top center",
                               backgroundRepeat: "no-repeat",
-                            }}
-                          />
-                          <div 
-                            className="absolute top-0 left-0 right-0 pointer-events-none z-0"
-                            style={{
-                              height: "80px",
-                              background: "linear-gradient(to bottom, transparent, #121212)",
+                              maskImage: "linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%)",
+                              WebkitMaskImage: "linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%)",
                             }}
                           />
 
