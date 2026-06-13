@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 
 interface LoginPageProps {
-  onLogin: (userId: string, username: string, balance: number) => void;
+  onLogin: (userId: string, username: string, balance: number, wcJoined?: boolean, wcBalance?: number) => void;
 }
 
 const SLIDES = [
@@ -66,7 +66,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         throw fetchError;
       }
 
-      if (profile) onLogin(profile.id, profile.username, profile.balance);
+      if (profile) onLogin(profile.id, profile.username, profile.balance, profile.wc_joined, profile.wc_balance);
     } catch (err: any) {
       setError("Erro ao entrar. Tente novamente.");
     } finally {

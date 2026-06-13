@@ -42,3 +42,25 @@ export async function fetchBalance(userId: string): Promise<number | null> {
   if (error || !data) return null
   return data.balance as number
 }
+
+// Atomic credit/debit for the World Cup pool (wc_balance) via server-side RPC.
+export async function adjustWcBalance(userId: string, delta: number): Promise<number | null> {
+  const { data, error } = await supabase.rpc('adjust_wc_balance', {
+    uid: userId,
+    delta_amount: delta,
+  })
+  if (error) {
+    console.error('adjust_wc_balance failed', error, { userId, delta })
+    return null
+  }
+  if (data === null || data === undefined) {
+    console.warn('adjust_wc_balance returned null (insufficient funds?)', { userId, delta })
+    return null
+  }
+  const n = typeof data === 'number' ? data : parseFloat(String(data))
+  if (Number.isNaN(n)) {
+    console.error('adjust_wc_balance returned non-numeric', data)
+    return null
+  }
+  return n
+}

@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Match, OddType, initialMatches } from "../data/matches";
-import { supabase, adjustBalance } from "../lib/supabase";
+import { supabase, adjustBalance, adjustWcBalance } from "../lib/supabase";
 
 export interface SlipItem {
   matchId: string;
@@ -24,6 +24,7 @@ export interface PlacedBet {
   totalOdds: number;
   potentialReturn: number;
   status: "pending" | "won" | "lost";
+  isWcBet?: boolean;
 }
 
 interface BetContextType {
@@ -31,7 +32,7 @@ interface BetContextType {
   username: string | null;
   isLoggedIn: boolean;
   isCheckingAuth: boolean;
-  login: (userId: string, username: string, balance: number) => void;
+  login: (userId: string, username: string, balance: number, wcJoinedVal?: boolean, wcBalanceVal?: number) => void;
   logout: () => void;
   balance: number;
   matches: Match[];
@@ -45,9 +46,13 @@ interface BetContextType {
   clearSlip: () => void;
   placeBet: (amount: number) => void;
   resetAll: () => void;
-  refreshMatches: () => void;
+  refreshMatches: (isInitial?: boolean) => void;
   setSelectedLeague: (league: string | null) => void;
   setActiveTab: (tab: "apostas" | "historico") => void;
+  wcJoined: boolean;
+  wcBalance: number;
+  joinWcCompetition: () => Promise<void>;
+  placeWinnerBet: (teamName: string, teamLogo: string, oddValue: number, amount: number) => Promise<boolean>;
 }
 
 const BetContext = createContext<BetContextType | undefined>(undefined);
@@ -90,14 +95,20 @@ export function BetProvider({ children }: { children: ReactNode }) {
   const [isLoadingMatches, setIsLoadingMatches] = useState<boolean>(true);
   const [betSlip, setBetSlip] = useState<SlipItem[]>([]);
   const [placedBets, setPlacedBets] = useState<PlacedBet[]>([]);
-  const [selectedLeague, setSelectedLeague] = useState<string | null>(null);
+  const [selectedLeague, setSelectedLeague] = useState<string | null>("Copa do Mundo");
   const [activeTab, setActiveTab] = useState<"apostas" | "historico">("apostas");
 
+  // Estados do bolão da copa
+  const [wcJoined, setWcJoined] = useState<boolean>(false);
+  const [wcBalance, setWcBalance] = useState<number>(1000.0);
+
   // ── Auth ───────────────────────────────────────────────────────────
-  const login = (uid: string, uname: string, bal: number) => {
+  const login = (uid: string, uname: string, bal: number, wcJoinedVal?: boolean, wcBalanceVal?: number) => {
     setUserId(uid);
     setUsername(uname);
     setBalance(bal);
+    setWcJoined(wcJoinedVal ?? false);
+    setWcBalance(wcBalanceVal ?? 1000.00);
     setIsLoggedIn(true);
     localStorage.setItem("netano_user", JSON.stringify({ uid, uname }));
   };
@@ -108,7 +119,27 @@ export function BetProvider({ children }: { children: ReactNode }) {
     setIsLoggedIn(false);
     setPlacedBets([]);
     setBetSlip([]);
+    setWcJoined(false);
+    setWcBalance(1000.00);
     localStorage.removeItem("netano_user");
+  };
+
+  const joinWcCompetition = async () => {
+    if (!userId) return;
+    try {
+      const { error } = await supabase
+        .from("netano_profiles")
+        .update({ wc_joined: true, wc_balance: 1000.00 })
+        .eq("id", userId);
+      if (!error) {
+        setWcJoined(true);
+        setWcBalance(1000.00);
+      } else {
+        console.error("Erro ao entrar no bolão:", error);
+      }
+    } catch (err) {
+      console.error("Erro ao entrar no bolão:", err);
+    }
   };
 
   // Restore session on mount
@@ -117,11 +148,13 @@ export function BetProvider({ children }: { children: ReactNode }) {
     if (saved) {
       try {
         const { uid, uname } = JSON.parse(saved);
-        supabase.from("netano_profiles").select("balance").eq("id", uid).single().then(({ data }) => {
+        supabase.from("netano_profiles").select("balance, wc_joined, wc_balance").eq("id", uid).single().then(({ data }) => {
           if (data) {
             setUserId(uid);
             setUsername(uname);
             setBalance(data.balance);
+            setWcJoined(data.wc_joined ?? false);
+            setWcBalance(Number(data.wc_balance) ?? 1000.00);
             setIsLoggedIn(true);
           } else {
             localStorage.removeItem("netano_user");
@@ -135,7 +168,15 @@ export function BetProvider({ children }: { children: ReactNode }) {
     } else {
       setIsCheckingAuth(false);
     }
-    fetchMatches();
+    fetchMatches(true);
+  }, []);
+
+  // Poll matches every 30 seconds to keep live scores and odds updated in real-time
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchMatches(false);
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   // Load bets from Supabase when user logs in
@@ -155,6 +196,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
             totalOdds: b.total_odds,
             potentialReturn: b.potential_return,
             status: b.status,
+            isWcBet: b.is_wc_bet,
           }));
           setPlacedBets(mapped);
         }
@@ -162,16 +204,16 @@ export function BetProvider({ children }: { children: ReactNode }) {
   }, [userId]);
 
   // ── Match fetching ─────────────────────────────────────────────────
-  const fetchMatches = async () => {
-    setIsLoadingMatches(true);
+  const fetchMatches = async (isInitial = false) => {
+    if (isInitial) setIsLoadingMatches(true);
     try {
       const res = await fetch("/api/matches");
       const data = await res.json();
       setMatches(data && data.length > 0 ? data : initialMatches);
     } catch {
-      setMatches(initialMatches);
+      if (isInitial) setMatches(initialMatches);
     } finally {
-      setIsLoadingMatches(false);
+      if (isInitial) setIsLoadingMatches(false);
     }
   };
 
@@ -189,7 +231,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
       resolvedAt: pick.resolvedAt ?? new Date().toISOString(),
     });
 
-    const toResolve: { id: string; status: "won" | "lost"; picks: SlipItem[]; payout: number }[] = [];
+    const toResolve: { id: string; status: "won" | "lost"; picks: SlipItem[]; payout: number; isWcBet: boolean }[] = [];
 
     const updated = placedBets.map((bet) => {
       // Já resolvida no banco ou nesta sessão — nunca recreditar
@@ -223,7 +265,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
           return m && m.isFinished ? enrichPickWithScore(p, m) : p;
         });
         resolvedInSessionRef.current.add(bet.id);
-        toResolve.push({ id: bet.id, status: "lost", picks: snapshotPicks, payout: 0 });
+        toResolve.push({ id: bet.id, status: "lost", picks: snapshotPicks, payout: 0, isWcBet: !!bet.isWcBet });
         return { ...bet, picks: snapshotPicks, status: "lost" as const };
       }
       if (!isPending) {
@@ -232,7 +274,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
           return m && m.isFinished ? enrichPickWithScore(p, m) : p;
         });
         resolvedInSessionRef.current.add(bet.id);
-        toResolve.push({ id: bet.id, status: "won", picks: snapshotPicks, payout: bet.potentialReturn });
+        toResolve.push({ id: bet.id, status: "won", picks: snapshotPicks, payout: bet.potentialReturn, isWcBet: !!bet.isWcBet });
         return { ...bet, picks: snapshotPicks, status: "won" as const };
       }
       return bet;
@@ -242,7 +284,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
     setPlacedBets(updated);
 
     // Atualiza banco e credita — cada aposta de forma independente e atômica
-    toResolve.forEach(async ({ id, status, picks, payout }) => {
+    toResolve.forEach(async ({ id, status, picks, payout, isWcBet }) => {
       const { error } = await supabase
         .from("netano_bets")
         .update({ status, picks })
@@ -250,8 +292,13 @@ export function BetProvider({ children }: { children: ReactNode }) {
         .eq("status", "pending"); // só atualiza se ainda estiver pending no banco
       if (error) return; // outro dispositivo já resolveu — não creditar
       if (status === "won" && payout > 0) {
-        const nb = await adjustBalance(userId, payout);
-        if (nb !== null) setBalance(nb);
+        if (isWcBet) {
+          const nb = await adjustWcBalance(userId, payout);
+          if (nb !== null) setWcBalance(nb);
+        } else {
+          const nb = await adjustBalance(userId, payout);
+          if (nb !== null) setBalance(nb);
+        }
       }
     });
   }, [matches, userId]);
@@ -271,7 +318,22 @@ export function BetProvider({ children }: { children: ReactNode }) {
 
   // ── Place Bet ──────────────────────────────────────────────────────
   const placeBet = async (amount: number) => {
-    if (!userId || amount <= 0 || amount > balance || betSlip.length === 0) return;
+    if (!userId || amount <= 0 || betSlip.length === 0) return;
+
+    const allMatchesWc = betSlip.every(item => {
+      const match = matches.find(m => m.id === item.matchId);
+      return match?.league?.toLowerCase() === "copa do mundo";
+    });
+    const isWcBet = wcJoined && allMatchesWc;
+
+    const currentBalance = isWcBet ? wcBalance : balance;
+    if (amount > currentBalance) return;
+
+    // Bolão constraint: max 75% of current wc balance
+    if (isWcBet && amount > currentBalance * 0.75) {
+      console.error("Aposta excede o limite de 75% do saldo do bolão");
+      return;
+    }
 
     const totalOdds = betSlip.reduce((acc, item) => acc * item.oddValue, 1);
     const enrichedPicks = betSlip.map(item => {
@@ -292,14 +354,19 @@ export function BetProvider({ children }: { children: ReactNode }) {
       totalOdds,
       potentialReturn: amount * totalOdds,
       status: "pending",
+      isWcBet,
     };
 
-    // Atomic debit on the server. If it fails (e.g. insufficient funds because
-    // a parallel tab already spent the money), abort the bet without touching
-    // local state.
-    const nb = await adjustBalance(userId, -amount);
-    if (nb === null) return;
-    setBalance(nb);
+    if (isWcBet) {
+      const nb = await adjustWcBalance(userId, -amount);
+      if (nb === null) return;
+      setWcBalance(nb);
+    } else {
+      const nb = await adjustBalance(userId, -amount);
+      if (nb === null) return;
+      setBalance(nb);
+    }
+
     setPlacedBets(prev => [newBet, ...prev]);
     setBetSlip([]);
 
@@ -311,18 +378,68 @@ export function BetProvider({ children }: { children: ReactNode }) {
       total_odds: newBet.totalOdds,
       potential_return: newBet.potentialReturn,
       status: newBet.status,
+      is_wc_bet: newBet.isWcBet,
     });
+  };
+
+  const placeWinnerBet = async (teamName: string, teamLogo: string, oddValue: number, amount: number): Promise<boolean> => {
+    if (!userId || amount <= 0) return false;
+
+    if (amount > wcBalance) return false;
+    if (amount > wcBalance * 0.75) return false;
+
+    const newBetId = "wc_winner_" + Math.random().toString(36).substring(2, 9);
+    const newBet: PlacedBet = {
+      id: newBetId,
+      amount,
+      picks: [
+        {
+          matchId: "copa_winner",
+          oddType: "champion",
+          oddValue,
+          homeTeam: teamName,
+          awayTeam: "Campeão da Copa",
+          homeLogo: teamLogo,
+          awayLogo: "/logocopa.png"
+        }
+      ],
+      totalOdds: oddValue,
+      potentialReturn: amount * oddValue,
+      status: "pending",
+      isWcBet: true,
+    };
+
+    const nb = await adjustWcBalance(userId, -amount);
+    if (nb === null) return false;
+    setWcBalance(nb);
+
+    setPlacedBets(prev => [newBet, ...prev]);
+
+    await supabase.from("netano_bets").insert({
+      id: newBet.id,
+      user_id: userId,
+      amount: newBet.amount,
+      picks: newBet.picks,
+      total_odds: newBet.totalOdds,
+      potential_return: newBet.potentialReturn,
+      status: newBet.status,
+      is_wc_bet: newBet.isWcBet,
+    });
+
+    return true;
   };
 
   const resetAll = () => {
     setBalance(1000);
     setBetSlip([]);
     setPlacedBets([]);
+    setWcJoined(false);
+    setWcBalance(1000.00);
     if (userId) {
-      supabase.from("netano_profiles").update({ balance: 1000 }).eq("id", userId);
+      supabase.from("netano_profiles").update({ balance: 1000, wc_joined: false, wc_balance: 1000.00 }).eq("id", userId);
       supabase.from("netano_bets").delete().eq("user_id", userId);
     }
-    fetchMatches();
+    fetchMatches(true);
   };
 
   return (
@@ -333,6 +450,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
         selectedLeague, activeTab,
         addToSlip, removeFromSlip, clearSlip, placeBet, resetAll,
         refreshMatches: fetchMatches, setSelectedLeague, setActiveTab,
+        wcJoined, wcBalance, joinWcCompetition, placeWinnerBet
       }}
     >
       {children}

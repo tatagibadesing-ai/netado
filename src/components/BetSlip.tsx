@@ -7,7 +7,16 @@ import { OddType } from "../data/matches";
 import { motion, AnimatePresence } from "framer-motion";
 
 export function BetSlip() {
-  const { betSlip, matches, balance, removeFromSlip, clearSlip, placeBet } = useBet();
+  const {
+    betSlip,
+    matches,
+    balance,
+    removeFromSlip,
+    clearSlip,
+    placeBet,
+    wcJoined,
+    wcBalance
+  } = useBet();
   const [betAmount, setBetAmount] = useState<number | "">("");
   const [isOpen, setIsOpen] = useState(false);
 
@@ -18,10 +27,18 @@ export function BetSlip() {
     }
   }, [betSlip.length]);
 
+  const allMatchesWc = betSlip.every(item => {
+    const match = matches.find(m => m.id === item.matchId);
+    return match?.league?.toLowerCase() === "copa do mundo";
+  });
+
   const totalOdds = betSlip.reduce((acc, item) => acc * item.oddValue, 1);
   const potentialReturn = (Number(betAmount) || 0) * totalOdds;
-  const isSufficientBalance = (Number(betAmount) || 0) <= balance;
-  const isValidBet = betSlip.length > 0 && Number(betAmount) > 0 && isSufficientBalance;
+  const isWcBet = wcJoined && allMatchesWc;
+  const activeBalance = isWcBet ? wcBalance : balance;
+  const isSufficientBalance = (Number(betAmount) || 0) <= activeBalance;
+  const isWithinWcLimit = !isWcBet || (Number(betAmount) || 0) <= wcBalance * 0.75;
+  const isValidBet = betSlip.length > 0 && Number(betAmount) > 0 && isSufficientBalance && isWithinWcLimit;
 
   const handlePlaceBet = () => {
     if (isValidBet) {
@@ -136,6 +153,28 @@ export function BetSlip() {
                 </span>
               </div>
 
+              {wcJoined && allMatchesWc && (
+                <div className="bg-[#121212] p-3 rounded-lg flex flex-col gap-1.5">
+                  <span className="text-xs font-bold text-white">
+                    Aposta do Bolão da Copa (Automática)
+                  </span>
+                  <p className="text-[10px] text-slate-400 font-medium">
+                    Saldo do Bolão: <span className="font-bold text-[#FF3C00]">R$ {wcBalance.toFixed(2)}</span> (Max aposta: R$ {(wcBalance * 0.75).toFixed(2)})
+                  </p>
+                </div>
+              )}
+
+              {wcJoined && !allMatchesWc && betSlip.some(item => matches.find(m => m.id === item.matchId)?.league?.toLowerCase() === "copa do mundo") && (
+                <div className="bg-[#121212] p-3 rounded-lg flex flex-col gap-1.5">
+                  <span className="text-xs font-bold text-slate-400">
+                    Aposta do Bolão da Copa
+                  </span>
+                  <p className="text-[10px] text-slate-500 font-medium leading-normal">
+                    Para apostar pelo Bolão, remova os jogos de outras competições do cupom.
+                  </p>
+                </div>
+              )}
+
               <div className="flex flex-col gap-2">
                 <label className="text-xs text-slate-400">Valor da Aposta (R$)</label>
                 <input
@@ -157,7 +196,17 @@ export function BetSlip() {
               {betAmount !== "" && !isSufficientBalance && (
                 <div className="flex items-center gap-2 text-xs text-red-400 bg-red-400/10 p-2 rounded">
                   <AlertCircle className="w-4 h-4" />
-                  Saldo insuficiente (Disponível: R$ {balance.toFixed(2)})
+                  {isWcBet 
+                    ? `Saldo insuficiente do bolão (Disponível: R$ ${wcBalance.toFixed(2)})`
+                    : `Saldo insuficiente (Disponível: R$ ${balance.toFixed(2)})`
+                  }
+                </div>
+              )}
+
+              {betAmount !== "" && isSufficientBalance && !isWithinWcLimit && (
+                <div className="flex items-center gap-2 text-xs text-red-400 bg-red-400/10 p-2 rounded">
+                  <AlertCircle className="w-4 h-4" />
+                  O valor excede o limite de 75% do saldo do bolão (Máximo: R$ {(wcBalance * 0.75).toFixed(2)})
                 </div>
               )}
 

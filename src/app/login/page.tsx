@@ -25,5 +25,5 @@ export default function LoginRoute() {
 
   if (isLoggedIn) return null;
 
-  return <LoginPage onLogin={(uid, uname, bal) => { login(uid, uname, bal); router.replace("/"); }} />;
+  return <LoginPage onLogin={(uid, uname, bal, wcJ, wcB) => { login(uid, uname, bal, wcJ, wcB); router.replace("/"); }} />;
 }

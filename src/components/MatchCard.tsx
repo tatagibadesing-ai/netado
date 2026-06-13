@@ -23,6 +23,8 @@ export function MatchCard({ match }: { match: Match }) {
   };
 
   const isFinished = match.time === "FINALIZADO";
+  const isCopaDoMundo = match.league?.toLowerCase() === "copa do mundo";
+  const isLive = match.isLive;
 
   const OddButton = ({ type, value, label }: { type: OddType, value: number | undefined, label: string }) => {
     if (!value) return null;
@@ -63,12 +65,38 @@ export function MatchCard({ match }: { match: Match }) {
   };
 
   return (
-    <div className="bg-[#121212] rounded-xl flex flex-col p-4 w-full">
-      {/* Header */}
+    <div className="bg-[#121212] rounded-xl flex flex-col p-4 w-full relative overflow-hidden">
+      {isCopaDoMundo && (
+        <>
+          <div 
+            className="absolute top-0 left-0 right-0 pointer-events-none opacity-95 z-0"
+            style={{
+              height: "50%",
+              backgroundImage: "url('/svgpartedacopa.svg')",
+              backgroundSize: "100% 100%",
+              backgroundPosition: "top center",
+              backgroundRepeat: "no-repeat",
+            }}
+          />
+          <div 
+            className="absolute inset-0 pointer-events-none z-0"
+            style={{
+              background: "linear-gradient(to bottom, transparent, #121212 50%)",
+            }}
+          />
+        </>
+      )}
+      <div className="relative z-10 flex flex-col flex-1">
+        {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <span className="text-xs text-slate-400 font-medium tracking-wide">
+        <span className={`text-xs font-medium tracking-wide ${isCopaDoMundo ? 'text-white font-semibold' : 'text-slate-400'}`}>
           {match.league} • {match.time}
         </span>
+        {isLive && (
+          <span className="text-xs font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded animate-pulse">
+            AO VIVO
+          </span>
+        )}
         {isFinished && (
           <span className="text-xs font-bold text-[#FF3C00] bg-[#FF3C00]/10 px-2 py-0.5 rounded">
             ENCERRADO
@@ -90,8 +118,10 @@ export function MatchCard({ match }: { match: Match }) {
 
         {/* VS or Score */}
         <div className="flex flex-col items-center justify-center px-4 shrink-0">
-          {isFinished ? (
-            <span className="font-bold text-xl md:text-2xl text-[#FF3C00]">{match.homeScore} - {match.awayScore}</span>
+          {(isFinished || isLive) ? (
+            <span className={`font-bold text-xl md:text-2xl ${isLive ? 'text-[#FF3C00] animate-pulse' : 'text-[#FF3C00]'}`}>
+              {match.homeScore} - {match.awayScore}
+            </span>
           ) : (
             <span className="font-bold text-slate-500 text-lg md:text-xl">X</span>
           )}
@@ -184,6 +214,7 @@ export function MatchCard({ match }: { match: Match }) {
           </motion.div>
         )}
       </AnimatePresence>
+      </div>
     </div>
   );
 }

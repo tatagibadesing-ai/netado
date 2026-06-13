@@ -10,7 +10,7 @@ import { AnimatePresence } from "framer-motion";
 import { FriendsModal } from "@/components/FriendsModal";
 
 export function Navbar() {
-  const { balance, username, logout, userId } = useBet();
+  const { balance, username, logout, userId, selectedLeague } = useBet();
   const pathname = usePathname();
   const [showFriends, setShowFriends] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
@@ -51,8 +51,22 @@ export function Navbar() {
 
   return (
     <>
-      <header className="bg-[#FF3C00] sticky top-0 z-50">
-        <div className="w-full mx-auto px-4 lg:px-8 pt-3 pb-0 md:py-0 md:h-16 flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-0">
+      <header className={`bg-[#FF3C00] sticky top-0 z-50 relative overflow-hidden transition-colors duration-500`}>
+        {pathname === "/apostasesportivas" && selectedLeague === "Copa do Mundo" && (
+          <div 
+            className="absolute inset-0 pointer-events-none z-0"
+            style={{
+              backgroundImage: "url('/svgpartedacopa.svg')",
+              backgroundSize: "cover",
+              backgroundPosition: "top center",
+              backgroundRepeat: "no-repeat",
+              maskImage: "linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%)",
+              WebkitMaskImage: "linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%)",
+              opacity: 0.8
+            }}
+          />
+        )}
+        <div className="w-full mx-auto px-4 lg:px-8 pt-3 pb-0 md:py-0 md:h-16 flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-0 relative z-10">
 
           {/* Top Row on Mobile: Logo & Balance */}
           <div className="flex items-center justify-between w-full md:w-auto md:h-full pb-1 md:pb-0">

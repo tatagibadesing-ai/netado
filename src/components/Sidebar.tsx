@@ -5,6 +5,7 @@ import { ChevronRight } from "lucide-react";
 import { useBet } from "../context/BetContext";
 
 const FAMOUS_LEAGUES = [
+  "Copa do Mundo",
   "Brasileirão Série A",
   "Copa do Brasil",
   "CONMEBOL Libertadores",

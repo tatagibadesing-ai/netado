@@ -6,7 +6,7 @@ export type OddType =
   | 'over35' | 'under35' 
   | 'over45' | 'under45' 
   | 'bttsYes' | 'bttsNo' 
-  | 'dc1x' | 'dcx2' | 'dc12';
+  | 'dc1x' | 'dcx2' | 'dc12' | 'champion';
 
 export interface Match {
   id: string;
@@ -17,6 +17,7 @@ export interface Match {
   league: string;
   time: string;
   isFinished: boolean;
+  isLive?: boolean;
   homeScore?: number;
   awayScore?: number;
   odds: {
