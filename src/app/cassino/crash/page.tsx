@@ -26,10 +26,13 @@ function useCrashGame(isWelcome: () => boolean) {
   const crashAtRef = useRef<number>(1);
 
   const generateCrashPoint = () => {
-    // Welcome: RTP 130% (crash 1.30/u). Normal: RTP 105% (crash 1.05/u).
-    const numerator = isWelcome() ? 1.30 : 1.05;
-    const u = Math.random();
-    return Math.max(1.01, numerator / Math.max(u, 0.001));
+    const u = Math.max(Math.random(), 0.001);
+    // Welcome (primeiras apostas): bônus generoso, mínimo 1.30x, nunca crasha instantâneo.
+    if (isWelcome()) return 1.30 / u;
+    // Normal: distribuição com vantagem da casa — quando 0.95/u cai abaixo de 1.00,
+    // vira um crash instantâneo em 1.00x (~5% das rodadas).
+    const crash = 0.95 / u;
+    return crash < 1.0 ? 1.0 : crash;
   };
 
   const startRound = useCallback(() => {

@@ -13,6 +13,10 @@ const PANEL_BG = "#111";
 const GREEN    = "#26890C";
 const ANSWER_COLORS = ["#E21B3C", "#1368CE", "#D89E00", "#26890C"];
 
+// Quiz temporariamente desativado: a rota continua viva, mas ninguém consegue
+// jogar. Basta voltar para `true` para reabrir o jogo.
+const QUIZ_ENABLED = false;
+
 let audioCtx: AudioContext | null = null;
 function getAudio(): AudioContext | null {
   if (typeof window === "undefined") return null;
@@ -706,6 +710,32 @@ export default function QuizPage() {
       >
         Comecar perguntas
       </button>
+    </div>
+  );
+
+  // Bloqueio de acesso: o jogo está desativado, mas a rota segue ativa.
+  // Mostra um aviso de indisponibilidade e impede entrar em qualquer fase.
+  if (!QUIZ_ENABLED) return (
+    <div className="flex-1 flex flex-col" style={{ background: PAGE_BG }}>
+      <div className="flex items-center gap-3 px-6 py-3" style={{ background: PANEL_BG }}>
+        <button onClick={() => router.push("/cassino")}
+          className="flex items-center gap-1.5 text-white/50 hover:text-white transition-colors text-sm font-medium">
+          <ArrowLeft size={16} /> Cassino
+        </button>
+        <span className="text-white/20">/</span>
+        <span className="text-white text-sm font-semibold">Quiz</span>
+      </div>
+      <div className="flex-1 flex flex-col items-center justify-center text-center gap-4 p-8">
+        <h2 className="text-2xl font-bold text-white">Quiz em manutenção</h2>
+        <p className="text-white/50 text-sm max-w-sm">
+          O Quiz está temporariamente indisponível. Volte em breve!
+        </p>
+        <button onClick={() => router.push("/cassino")}
+          className="mt-2 px-6 py-3 rounded text-white text-sm font-semibold"
+          style={{ background: ACCENT }}>
+          Voltar ao Cassino
+        </button>
+      </div>
     </div>
   );
 

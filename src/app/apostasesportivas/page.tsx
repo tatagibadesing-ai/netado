@@ -451,80 +451,122 @@ export default function ApostasEsportivas() {
                           })()}
                         </div>
                       ) : wcTab === "ranking" ? (
-                        <div className="bg-[#121212] rounded-xl border border-white/5 overflow-hidden relative shadow-2xl">
-                          {/* Discrete SVG background in header area */}
-                          <div 
-                            className="absolute top-0 left-0 right-0 pointer-events-none opacity-100 z-0"
-                            style={{
-                              height: "80px",
-                              backgroundImage: "url('/svgpartedacopa.svg')",
-                              backgroundSize: "cover",
-                              backgroundPosition: "top center",
-                              backgroundRepeat: "no-repeat",
-                              maskImage: "linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%)",
-                              WebkitMaskImage: "linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%)",
-                            }}
-                          />
+                        (() => {
+                          // Premiação final do bolão: % do próprio saldo para o top 3.
+                          const PRIZE_PCTS = [0.067, 0.02, 0.01];
+                          const MEDALS = ["🥇", "🥈", "🥉"];
+                          const prizeFor = (idx: number, bal: number) => (idx >= 0 && idx < 3 ? bal * PRIZE_PCTS[idx] : 0);
 
-                          <div className="relative z-10 p-4 bg-[#181818]/40 border-b border-white/5 flex items-center justify-between">
-                            <h4 className="font-bold text-white text-sm">
-                              Ranking Geral do Bolão
-                            </h4>
-                            <span className="text-xs text-slate-200 font-bold">
-                              {ranking.length} Competidores
-                            </span>
-                          </div>
-                          
-                          {isLoadingRanking ? (
-                            <div className="flex items-center justify-center py-12 text-slate-500">
-                              <RefreshCcw className="w-6 h-6 animate-spin text-[#FF3C00]" />
+                          const myIndex = ranking.findIndex(p => p.username.toLowerCase() === username?.toLowerCase());
+                          const me = myIndex >= 0 ? ranking[myIndex] : null;
+                          const personAbove = myIndex > 0 ? ranking[myIndex - 1] : null;
+                          const podiumThird = ranking[2] ?? null;
+                          const gapToNext = me && personAbove ? personAbove.wc_balance - me.wc_balance : 0;
+                          const gapToPodium = me && podiumThird ? podiumThird.wc_balance - me.wc_balance : 0;
+
+                          return (
+                            <div className="flex flex-col gap-3">
+                              {/* Premiação — linha discreta */}
+                              <p className="text-xs text-slate-400 px-1">
+                                Premiação final p/ o top 3:{" "}
+                                <span className="text-[#FFD700] font-bold">6,7%</span> ·{" "}
+                                <span className="text-slate-200 font-bold">2%</span> ·{" "}
+                                <span className="text-[#CD7F32] font-bold">1%</span> do próprio saldo.
+                              </p>
+
+                              {/* Sua posição — linha discreta */}
+                              {me && (
+                                <p className="text-xs text-slate-400 px-1">
+                                  Você está em <span className="font-bold text-white">{myIndex + 1}º</span> de {ranking.length}
+                                  {myIndex === 0
+                                    ? <span className="text-[#FFD700]"> — você lidera! 👑</span>
+                                    : myIndex < 3
+                                      ? <> — faltam <span className="font-semibold text-white">R$ {gapToNext.toFixed(2)}</span> pra subir.</>
+                                      : <> — faltam <span className="font-semibold text-white">R$ {gapToPodium.toFixed(2)}</span> pra entrar no pódio.</>}
+                                </p>
+                              )}
+
+                              {isLoadingRanking ? (
+                                <div className="flex items-center justify-center py-12 text-slate-500 bg-[#121212] rounded-xl border border-white/5">
+                                  <RefreshCcw className="w-6 h-6 animate-spin text-[#FF3C00]" />
+                                </div>
+                              ) : ranking.length === 0 ? (
+                                <div className="text-center py-10 text-slate-400 bg-[#121212] rounded-xl border border-white/5">
+                                  Ninguém no ranking ainda. <span className="text-white font-semibold">Seja o primeiro a apostar!</span>
+                                </div>
+                              ) : (
+                                <div className="bg-[#121212] rounded-xl border border-white/5 overflow-hidden relative shadow-2xl">
+                                  {/* SVG discreto de fundo na área do cabeçalho */}
+                                  <div
+                                    className="absolute top-0 left-0 right-0 pointer-events-none opacity-100 z-0"
+                                    style={{
+                                      height: "80px",
+                                      backgroundImage: "url('/svgpartedacopa.svg')",
+                                      backgroundSize: "cover",
+                                      backgroundPosition: "top center",
+                                      backgroundRepeat: "no-repeat",
+                                      maskImage: "linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%)",
+                                      WebkitMaskImage: "linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%)",
+                                    }}
+                                  />
+                                  <div className="relative z-10 p-4 bg-[#181818]/40 border-b border-white/5 flex items-center justify-between">
+                                    <h4 className="font-bold text-white text-sm">Ranking Geral do Bolão</h4>
+                                    <span className="text-xs text-slate-200 font-bold">{ranking.length} Competidores</span>
+                                  </div>
+                                  <div className="overflow-x-auto relative z-10">
+                                    <table className="w-full text-left text-sm border-collapse">
+                                      <thead>
+                                        <tr className="border-b border-white/5 text-slate-400 text-xs font-semibold bg-[#0d0d0d]/40">
+                                          <th className="py-3 px-2.5 md:px-4 w-10 md:w-16 text-center font-medium">Pos</th>
+                                          <th className="py-3 px-2.5 md:px-4 font-medium">Usuário</th>
+                                          <th className="py-3 px-2.5 md:px-4 text-right font-medium whitespace-nowrap">
+                                            <span className="md:hidden">Saldo</span>
+                                            <span className="hidden md:inline">Saldo do Bolão</span>
+                                          </th>
+                                          <th className="py-3 px-2.5 md:px-4 text-right font-medium whitespace-nowrap">Prêmio</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-white/5">
+                                        {ranking.map((player, idx) => {
+                                          const isCurrentUser = player.username.toLowerCase() === username?.toLowerCase();
+                                          const prize = prizeFor(idx, player.wc_balance);
+                                          return (
+                                            <tr
+                                              key={idx}
+                                              className={`hover:bg-white/5 transition-colors ${
+                                                isCurrentUser ? "bg-white/5 font-semibold text-white" : "text-slate-300"
+                                              }`}
+                                            >
+                                              <td className="py-3.5 px-2.5 md:px-4 text-center">
+                                                <span className="font-bold">{idx < 3 ? MEDALS[idx] : <span className="text-slate-500">{idx + 1}</span>}</span>
+                                              </td>
+                                              <td className="py-3.5 px-2.5 md:px-4 max-w-0">
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                  <span className="truncate">{player.username}</span>
+                                                  {isCurrentUser && (
+                                                    <span className="bg-white/10 text-white text-[9px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0">
+                                                      Você
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              </td>
+                                              <td className="py-3.5 px-2.5 md:px-4 text-right font-bold text-slate-100 whitespace-nowrap">
+                                                R$ {player.wc_balance.toFixed(2)}
+                                              </td>
+                                              <td className="py-3.5 px-2.5 md:px-4 text-right font-bold whitespace-nowrap">
+                                                {prize > 0 ? <span className="text-[#FF3C00]">R$ {prize.toFixed(2)}</span> : <span className="text-slate-600">—</span>}
+                                              </td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                          ) : ranking.length === 0 ? (
-                            <div className="text-center py-10 text-slate-500 relative z-10">
-                              Nenhum participante no ranking ainda.
-                            </div>
-                          ) : (
-                            <div className="overflow-x-auto relative z-10">
-                              <table className="w-full text-left text-sm border-collapse">
-                                <thead>
-                                  <tr className="border-b border-white/5 text-slate-400 text-xs font-semibold bg-[#0d0d0d]/40">
-                                    <th className="py-3 px-4 w-16 text-center font-medium">Pos</th>
-                                    <th className="py-3 px-4 font-medium">Usuário</th>
-                                    <th className="py-3 px-4 text-right font-medium">Saldo do Bolão</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-white/5">
-                                  {ranking.map((player, idx) => {
-                                    const isCurrentUser = player.username.toLowerCase() === username?.toLowerCase();
-                                    return (
-                                      <tr 
-                                        key={idx} 
-                                        className={`hover:bg-white/5 transition-colors ${
-                                          isCurrentUser ? "bg-white/5 font-semibold text-white" : "text-slate-300"
-                                        }`}
-                                      >
-                                        <td className="py-3.5 px-4 text-center">
-                                          <span className="text-slate-500 font-bold">{idx + 1}</span>
-                                        </td>
-                                        <td className="py-3.5 px-4 flex items-center gap-2">
-                                          <span className="truncate">{player.username}</span>
-                                          {isCurrentUser && (
-                                            <span className="bg-white/10 text-white text-[9px] font-bold uppercase px-1.5 py-0.5 rounded">
-                                              Você
-                                            </span>
-                                          )}
-                                        </td>
-                                        <td className="py-3.5 px-4 text-right font-bold text-slate-100">
-                                          R$ {player.wc_balance.toFixed(2)}
-                                        </td>
-                                      </tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
-                            </div>
-                          )}
-                        </div>
+                          );
+                        })()
                       ) : (
                         /* Histórico de Apostas Tab (Identical to /historico / MyBets design) */
                         <div className="flex flex-col gap-6">

@@ -22,9 +22,10 @@ export function MatchCard({ match }: { match: Match }) {
     }
   };
 
-  const isFinished = match.time === "FINALIZADO";
+  const isFinished = match.time === "FINALIZADO" || match.isFinished;
   const isCopaDoMundo = match.league?.toLowerCase() === "copa do mundo";
-  const isLive = match.isLive;
+  const isLive = !!match.isLive;
+  const hasStarted = isFinished || isLive;
 
   const OddButton = ({ type, value, label }: { type: OddType, value: number | undefined, label: string }) => {
     if (!value) return null;
@@ -32,7 +33,7 @@ export function MatchCard({ match }: { match: Match }) {
     return (
       <button
         onClick={() => handleSelect(type, value)}
-        disabled={isFinished}
+        disabled={hasStarted}
         className={`flex items-center justify-between px-3 py-1.5 rounded flex-1 text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
           selected
             ? "bg-[#FF3C00] text-black"
@@ -51,7 +52,7 @@ export function MatchCard({ match }: { match: Match }) {
     return (
       <button
         onClick={() => handleSelect(type, value)}
-        disabled={isFinished}
+        disabled={hasStarted}
         className={`flex items-center justify-between px-3 py-2 rounded flex-1 text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
           selected
             ? "bg-[#FF3C00] text-black"

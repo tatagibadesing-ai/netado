@@ -125,17 +125,28 @@ export function BetProvider({ children }: { children: ReactNode }) {
   };
 
   const joinWcCompetition = async () => {
-    if (!userId) return;
+    if (!userId || wcJoined) return; // já participa — nunca reentrar/resetar o saldo
     try {
-      const { error } = await supabase
+      // .eq("wc_joined", false) garante no banco que o saldo só é zerado para R$1000
+      // num primeiro ingresso real. Quem já está no bolão casa 0 linhas e não é resetado,
+      // mesmo que o estado local esteja desatualizado.
+      const { data, error } = await supabase
         .from("netano_profiles")
         .update({ wc_joined: true, wc_balance: 1000.00 })
-        .eq("id", userId);
-      if (!error) {
+        .eq("id", userId)
+        .eq("wc_joined", false)
+        .select("id");
+      if (error) {
+        console.error("Erro ao entrar no bolão:", error);
+        return;
+      }
+      if (data && data.length > 0) {
+        // ingresso novo de fato — começa com R$1000
         setWcJoined(true);
         setWcBalance(1000.00);
       } else {
-        console.error("Erro ao entrar no bolão:", error);
+        // já participava no banco — só sincroniza a flag, sem mexer no saldo
+        setWcJoined(true);
       }
     } catch (err) {
       console.error("Erro ao entrar no bolão:", err);
@@ -283,14 +294,20 @@ export function BetProvider({ children }: { children: ReactNode }) {
     if (toResolve.length === 0) return;
     setPlacedBets(updated);
 
-    // Atualiza banco e credita — cada aposta de forma independente e atômica
+    // Atualiza banco e credita — cada aposta de forma independente e atômica.
+    // O .select() é ESSENCIAL: no Supabase um update que não casa nenhuma linha
+    // NÃO retorna erro, retorna uma lista vazia. Só creditamos se ESTE cliente foi
+    // quem realmente virou a aposta de "pending" -> resolvida. Sem isso, uma segunda
+    // aba/dispositivo recreditava o prêmio a cada poll (saldo "aumentando sozinho").
     toResolve.forEach(async ({ id, status, picks, payout, isWcBet }) => {
-      const { error } = await supabase
+      const { data: flipped, error } = await supabase
         .from("netano_bets")
         .update({ status, picks })
         .eq("id", id)
-        .eq("status", "pending"); // só atualiza se ainda estiver pending no banco
-      if (error) return; // outro dispositivo já resolveu — não creditar
+        .eq("status", "pending") // só atualiza se ainda estiver pending no banco
+        .select("id");
+      if (error) return; // erro real — não creditar
+      if (!flipped || flipped.length === 0) return; // outro cliente já resolveu — não recreditar
       if (status === "won" && payout > 0) {
         if (isWcBet) {
           const nb = await adjustWcBalance(userId, payout);
@@ -319,6 +336,16 @@ export function BetProvider({ children }: { children: ReactNode }) {
   // ── Place Bet ──────────────────────────────────────────────────────
   const placeBet = async (amount: number) => {
     if (!userId || amount <= 0 || betSlip.length === 0) return;
+
+    const hasStartedMatch = betSlip.some(item => {
+      const match = matches.find(m => m.id === item.matchId);
+      return match ? (match.isLive || match.isFinished || match.time === "FINALIZADO") : false;
+    });
+
+    if (hasStartedMatch) {
+      console.error("Não é possível apostar em partidas que já começaram ou terminaram.");
+      return;
+    }
 
     const allMatchesWc = betSlip.every(item => {
       const match = matches.find(m => m.id === item.matchId);
@@ -384,6 +411,12 @@ export function BetProvider({ children }: { children: ReactNode }) {
 
   const placeWinnerBet = async (teamName: string, teamLogo: string, oddValue: number, amount: number): Promise<boolean> => {
     if (!userId || amount <= 0) return false;
+
+    const winnerDeadline = new Date("2026-06-22T23:59:59-04:00");
+    if (new Date() >= winnerDeadline) {
+      console.error("Palpites para campeão da Copa estão encerrados.");
+      return false;
+    }
 
     if (amount > wcBalance) return false;
     if (amount > wcBalance * 0.75) return false;

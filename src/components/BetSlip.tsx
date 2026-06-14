@@ -32,13 +32,18 @@ export function BetSlip() {
     return match?.league?.toLowerCase() === "copa do mundo";
   });
 
+  const hasStartedMatches = betSlip.some(item => {
+    const match = matches.find(m => m.id === item.matchId);
+    return match ? (match.isLive || match.isFinished || match.time === "FINALIZADO") : false;
+  });
+
   const totalOdds = betSlip.reduce((acc, item) => acc * item.oddValue, 1);
   const potentialReturn = (Number(betAmount) || 0) * totalOdds;
   const isWcBet = wcJoined && allMatchesWc;
   const activeBalance = isWcBet ? wcBalance : balance;
   const isSufficientBalance = (Number(betAmount) || 0) <= activeBalance;
   const isWithinWcLimit = !isWcBet || (Number(betAmount) || 0) <= wcBalance * 0.75;
-  const isValidBet = betSlip.length > 0 && Number(betAmount) > 0 && isSufficientBalance && isWithinWcLimit;
+  const isValidBet = betSlip.length > 0 && Number(betAmount) > 0 && isSufficientBalance && isWithinWcLimit && !hasStartedMatches;
 
   const handlePlaceBet = () => {
     if (isValidBet) {
@@ -127,9 +132,16 @@ export function BetSlip() {
                     </button>
                     
                     <div className="pr-8">
-                      <p className="text-xs font-semibold text-slate-500 mb-1 line-clamp-1">
-                        {match?.homeTeam} vs {match?.awayTeam}
-                      </p>
+                      <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                        <p className="text-xs font-semibold text-slate-500 line-clamp-1">
+                          {match?.homeTeam} vs {match?.awayTeam}
+                        </p>
+                        {match && (match.isLive || match.isFinished || match.time === "FINALIZADO") && (
+                          <span className="text-[8px] font-bold text-red-500 bg-red-500/10 px-1 py-0.2 rounded shrink-0">
+                            {match.time === "FINALIZADO" ? "ENCERRADO" : "AO VIVO"}
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center justify-between mt-2">
                         <span className="text-sm font-medium text-white">
                           {getOddLabel(item.oddType)}
@@ -207,6 +219,13 @@ export function BetSlip() {
                 <div className="flex items-center gap-2 text-xs text-red-400 bg-red-400/10 p-2 rounded">
                   <AlertCircle className="w-4 h-4" />
                   O valor excede o limite de 75% do saldo do bolão (Máximo: R$ {(wcBalance * 0.75).toFixed(2)})
+                </div>
+              )}
+
+              {hasStartedMatches && (
+                <div className="flex items-center gap-2 text-xs text-red-400 bg-red-400/10 p-2 rounded">
+                  <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                  <span>Não é permitido apostar em partidas em andamento ou encerradas.</span>
                 </div>
               )}
 
