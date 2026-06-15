@@ -329,7 +329,8 @@ export function BetProvider({ children }: { children: ReactNode }) {
   // ── Slip actions ───────────────────────────────────────────────────
   const addToSlip = (matchId: string, oddType: OddType, oddValue: number) => {
     setBetSlip(prev => {
-      const filtered = prev.filter(item => !(item.matchId === matchId && item.oddType === oddType));
+      // Uma múltipla não pode combinar mercados correlacionados da mesma partida.
+      const filtered = prev.filter(item => item.matchId !== matchId);
       return [...filtered, { matchId, oddType, oddValue }];
     });
   };
@@ -342,6 +343,12 @@ export function BetProvider({ children }: { children: ReactNode }) {
   // ── Place Bet ──────────────────────────────────────────────────────
   const placeBet = async (amount: number) => {
     if (!userId || amount <= 0 || betSlip.length === 0) return;
+
+    const matchIds = betSlip.map(item => item.matchId);
+    if (new Set(matchIds).size !== matchIds.length) {
+      console.error("O cupom aceita apenas uma seleção por partida.");
+      return;
+    }
 
     const hasStartedMatch = betSlip.some(item => {
       const match = matches.find(m => m.id === item.matchId);
