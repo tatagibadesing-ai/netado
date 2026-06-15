@@ -30,6 +30,63 @@ function prettyTeam(name: string): string {
   return `${outcome} ${stageLabel}${num}`.trim();
 }
 
+// Calcula odds de Over/Under baseadas nas odds de vitória (1X2) usando Distribuição de Poisson
+function calculateOverUnderOdds(homeOdd: number, drawOdd: number, awayOdd: number) {
+  const minOdd = Math.min(homeOdd || 2.0, awayOdd || 2.0);
+  const safeDraw = drawOdd || 3.2;
+  
+  let avgGoals = 2.5;
+  if (minOdd < 2.0) {
+    // Se há um grande favorito, a média esperada de gols aumenta significativamente
+    avgGoals = 2.5 + (2.0 - minOdd) * 1.8;
+  } else {
+    // Para jogos equilibrados, ajusta conforme a odd do empate (quanto menor, mais truncado)
+    avgGoals = 2.5 + (safeDraw - 3.20) * 0.4;
+    avgGoals = Math.max(2.0, Math.min(3.0, avgGoals));
+  }
+  
+  const lambda = avgGoals;
+  const p0 = Math.exp(-lambda);
+  const p1 = p0 * lambda;
+  const p2 = (p1 * lambda) / 2;
+  const p3 = (p2 * lambda) / 3;
+  const p4 = (p3 * lambda) / 4;
+  
+  const pUnder05 = p0;
+  const pUnder15 = p0 + p1;
+  const pUnder25 = p0 + p1 + p2;
+  const pUnder35 = p0 + p1 + p2 + p3;
+  const pUnder45 = p0 + p1 + p2 + p3 + p4;
+  
+  const pOver05 = 1 - pUnder05;
+  const pOver15 = 1 - pUnder15;
+  const pOver25 = 1 - pUnder25;
+  const pOver35 = 1 - pUnder35;
+  const pOver45 = 1 - pUnder45;
+  
+  // Margem de lucro da casa de apostas (ex.: payout de 90%)
+  const payout = 0.90;
+  
+  const formatOdd = (prob: number): number => {
+    if (prob <= 0) return 100.0;
+    const odd = payout / prob;
+    return Number(Math.max(1.01, Math.min(100.0, odd)).toFixed(2));
+  };
+  
+  return {
+    over05: formatOdd(pOver05),
+    under05: formatOdd(pUnder05),
+    over15: formatOdd(pOver15),
+    under15: formatOdd(pUnder15),
+    over25: formatOdd(pOver25),
+    under25: formatOdd(pUnder25),
+    over35: formatOdd(pOver35),
+    under35: formatOdd(pUnder35),
+    over45: formatOdd(pOver45),
+    under45: formatOdd(pUnder45),
+  };
+}
+
 // Constrói o objeto de partida a partir de um evento da ESPN, derivando os
 // mercados adicionais a partir do 1x2 para simular uma casa de apostas real.
 function buildMatchFromEvent(event: any, leagueName: string, now: Date, spNow: Date) {
@@ -86,11 +143,7 @@ function buildMatchFromEvent(event: any, leagueName: string, now: Date, spNow: D
     drawOdd = americanToDecimal(oddsData.drawOdds.moneyLine) || 3.20;
   }
 
-  const baseO05 = 1.01; const baseU05 = 15.0;
-  const baseO15 = 1.25; const baseU15 = 4.0;
-  const baseO25 = 1.85; const baseU25 = 1.95;
-  const baseO35 = 3.20; const baseU35 = 1.35;
-  const baseO45 = 6.50; const baseU45 = 1.10;
+  const oOdds = calculateOverUnderOdds(homeOdd, drawOdd, awayOdd);
 
   const bttsYes = Number((1.2 + (drawOdd / 4)).toFixed(2));
   const bttsNo = Number((2.0 + (homeOdd > awayOdd ? 0.2 : -0.2)).toFixed(2));
@@ -119,16 +172,16 @@ function buildMatchFromEvent(event: any, leagueName: string, now: Date, spNow: D
       home: homeOdd,
       draw: drawOdd,
       away: awayOdd,
-      over05: baseO05,
-      under05: baseU05,
-      over15: baseO15,
-      under15: baseU15,
-      over25: baseO25,
-      under25: baseU25,
-      over35: baseO35,
-      under35: baseU35,
-      over45: baseO45,
-      under45: baseU45,
+      over05: oOdds.over05,
+      under05: oOdds.under05,
+      over15: oOdds.over15,
+      under15: oOdds.under15,
+      over25: oOdds.over25,
+      under25: oOdds.under25,
+      over35: oOdds.over35,
+      under35: oOdds.under35,
+      over45: oOdds.over45,
+      under45: oOdds.under45,
       bttsYes,
       bttsNo,
       dc1x,
@@ -137,6 +190,7 @@ function buildMatchFromEvent(event: any, leagueName: string, now: Date, spNow: D
     },
   };
 }
+
 
 export async function GET() {
   try {

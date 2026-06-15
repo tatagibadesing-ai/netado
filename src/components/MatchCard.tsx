@@ -7,7 +7,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export function MatchCard({ match }: { match: Match }) {
-  const { betSlip, addToSlip, removeFromSlip } = useBet();
+  const { betSlip, addToSlip, canAddToSlip, removeFromSlip } = useBet();
   const [expanded, setExpanded] = useState(false);
 
   const isSelected = (oddType: OddType) => {
@@ -30,10 +30,12 @@ export function MatchCard({ match }: { match: Match }) {
   const OddButton = ({ type, value, label }: { type: OddType, value: number | undefined, label: string }) => {
     if (!value) return null;
     const selected = isSelected(type);
+    const incompatible = !selected && !canAddToSlip(match.id, type);
     return (
       <button
         onClick={() => handleSelect(type, value)}
-        disabled={hasStarted}
+        disabled={hasStarted || incompatible}
+        title={incompatible ? "Este palpite contradiz outra seleção desta partida." : undefined}
         className={`flex items-center justify-between px-3 py-1.5 rounded flex-1 text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
           selected
             ? "bg-[#FF3C00] text-black"
@@ -49,10 +51,12 @@ export function MatchCard({ match }: { match: Match }) {
   const OddButtonRow = ({ type, value, label }: { type: OddType, value: number | undefined, label: string }) => {
     if (!value) return null;
     const selected = isSelected(type);
+    const incompatible = !selected && !canAddToSlip(match.id, type);
     return (
       <button
         onClick={() => handleSelect(type, value)}
-        disabled={hasStarted}
+        disabled={hasStarted || incompatible}
+        title={incompatible ? "Este palpite contradiz outra seleção desta partida." : undefined}
         className={`flex items-center justify-between px-3 py-2 rounded flex-1 text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
           selected
             ? "bg-[#FF3C00] text-black"

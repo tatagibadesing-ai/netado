@@ -42,6 +42,7 @@ interface BetContextType {
   selectedLeague: string | null;
   activeTab: "apostas" | "historico";
   addToSlip: (matchId: string, oddType: OddType, oddValue: number) => void;
+  canAddToSlip: (matchId: string, oddType: OddType) => boolean;
   removeFromSlip: (matchId: string, oddType: OddType) => void;
   clearSlip: () => void;
   placeBet: (amount: number) => void;
@@ -59,32 +60,59 @@ interface BetContextType {
 
 const BetContext = createContext<BetContextType | undefined>(undefined);
 
+type MarketGroup = "result" | "totals" | "btts" | "champion";
+
+const getMarketGroup = (oddType: OddType): MarketGroup => {
+  if (["home", "draw", "away", "dc1x", "dcx2", "dc12"].includes(oddType)) return "result";
+  if (oddType.startsWith("over") || oddType.startsWith("under")) return "totals";
+  if (oddType === "bttsYes" || oddType === "bttsNo") return "btts";
+  return "champion";
+};
+
+const doesPickMatchScore = (oddType: OddType, homeScore: number, awayScore: number): boolean => {
+  const total = homeScore + awayScore;
+
+  switch (oddType) {
+    case "home": return homeScore > awayScore;
+    case "draw": return homeScore === awayScore;
+    case "away": return homeScore < awayScore;
+    case "over05": return total > 0.5;
+    case "under05": return total < 0.5;
+    case "over15": return total > 1.5;
+    case "under15": return total < 1.5;
+    case "over25": return total > 2.5;
+    case "under25": return total < 2.5;
+    case "over35": return total > 3.5;
+    case "under35": return total < 3.5;
+    case "over45": return total > 4.5;
+    case "under45": return total < 4.5;
+    case "bttsYes": return homeScore > 0 && awayScore > 0;
+    case "bttsNo": return homeScore === 0 || awayScore === 0;
+    case "dc1x": return homeScore >= awayScore;
+    case "dcx2": return awayScore >= homeScore;
+    case "dc12": return homeScore !== awayScore;
+    default: return false;
+  }
+};
+
+const arePicksCompatible = (oddTypes: OddType[]): boolean => {
+  const groups = oddTypes.map(getMarketGroup);
+  if (new Set(groups).size !== groups.length) return false;
+
+  for (let homeScore = 0; homeScore <= 10; homeScore++) {
+    for (let awayScore = 0; awayScore <= 10; awayScore++) {
+      if (oddTypes.every(type => doesPickMatchScore(type, homeScore, awayScore))) return true;
+    }
+  }
+
+  return false;
+};
+
 export const isPickWon = (pick: SlipItem, match: Match): boolean | null => {
   if (!match.isFinished) return null;
   const h = match.homeScore || 0;
   const a = match.awayScore || 0;
-  const total = h + a;
-  switch (pick.oddType) {
-    case 'home': return h > a;
-    case 'draw': return h === a;
-    case 'away': return h < a;
-    case 'over05': return total > 0.5;
-    case 'under05': return total < 0.5;
-    case 'over15': return total > 1.5;
-    case 'under15': return total < 1.5;
-    case 'over25': return total > 2.5;
-    case 'under25': return total < 2.5;
-    case 'over35': return total > 3.5;
-    case 'under35': return total < 3.5;
-    case 'over45': return total > 4.5;
-    case 'under45': return total < 4.5;
-    case 'bttsYes': return h > 0 && a > 0;
-    case 'bttsNo': return h === 0 || a === 0;
-    case 'dc1x': return h >= a;
-    case 'dcx2': return a >= h;
-    case 'dc12': return h !== a;
-    default: return false;
-  }
+  return doesPickMatchScore(pick.oddType, h, a);
 };
 
 export function BetProvider({ children }: { children: ReactNode }) {
@@ -327,10 +355,28 @@ export function BetProvider({ children }: { children: ReactNode }) {
   }, [matches, userId]);
 
   // ── Slip actions ───────────────────────────────────────────────────
+  const canAddToSlip = (matchId: string, oddType: OddType) => {
+    const selectedGroup = getMarketGroup(oddType);
+    const otherPicks = betSlip.filter(
+      item => item.matchId === matchId && getMarketGroup(item.oddType) !== selectedGroup
+    );
+
+    return arePicksCompatible([...otherPicks.map(item => item.oddType), oddType]);
+  };
+
   const addToSlip = (matchId: string, oddType: OddType, oddValue: number) => {
     setBetSlip(prev => {
-      // Uma múltipla não pode combinar mercados correlacionados da mesma partida.
-      const filtered = prev.filter(item => item.matchId !== matchId);
+      const selectedGroup = getMarketGroup(oddType);
+      const otherPicks = prev.filter(
+        item => item.matchId === matchId && getMarketGroup(item.oddType) !== selectedGroup
+      );
+
+      if (!arePicksCompatible([...otherPicks.map(item => item.oddType), oddType])) return prev;
+
+      // Troca apenas o palpite da mesma categoria e mantém mercados complementares.
+      const filtered = prev.filter(
+        item => item.matchId !== matchId || getMarketGroup(item.oddType) !== selectedGroup
+      );
       return [...filtered, { matchId, oddType, oddValue }];
     });
   };
@@ -344,9 +390,12 @@ export function BetProvider({ children }: { children: ReactNode }) {
   const placeBet = async (amount: number) => {
     if (!userId || amount <= 0 || betSlip.length === 0) return;
 
-    const matchIds = betSlip.map(item => item.matchId);
-    if (new Set(matchIds).size !== matchIds.length) {
-      console.error("O cupom aceita apenas uma seleção por partida.");
+    const picksByMatch = betSlip.reduce<Record<string, OddType[]>>((groups, item) => {
+      groups[item.matchId] = [...(groups[item.matchId] || []), item.oddType];
+      return groups;
+    }, {});
+    if (Object.values(picksByMatch).some(oddTypes => !arePicksCompatible(oddTypes))) {
+      console.error("O cupom contém mercados duplicados ou incompatíveis na mesma partida.");
       return;
     }
 
@@ -494,7 +543,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
         userId, username, isLoggedIn, isCheckingAuth, login, logout,
         balance, matches, isLoadingMatches, betSlip, placedBets,
         selectedLeague, activeTab,
-        addToSlip, removeFromSlip, clearSlip, placeBet, resetAll,
+        addToSlip, canAddToSlip, removeFromSlip, clearSlip, placeBet, resetAll,
         refreshMatches: fetchMatches, setSelectedLeague, setActiveTab,
         wcJoined, wcBalance, joinWcCompetition, placeWinnerBet,
         fullName, setFullName: setFullNameState
