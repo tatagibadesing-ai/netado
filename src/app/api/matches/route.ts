@@ -30,21 +30,26 @@ function prettyTeam(name: string): string {
   return `${outcome} ${stageLabel}${num}`.trim();
 }
 
-// Calcula odds de Over/Under baseadas nas odds de vitória (1X2) usando Distribuição de Poisson
-function calculateOverUnderOdds(homeOdd: number, drawOdd: number, awayOdd: number) {
+
+// Calcula a média de gols esperada (avgGoals) de uma partida com base nas odds de vitória (1X2)
+function getAvgGoals(homeOdd: number, drawOdd: number, awayOdd: number): number {
   const minOdd = Math.min(homeOdd || 2.0, awayOdd || 2.0);
   const safeDraw = drawOdd || 3.2;
   
   let avgGoals = 2.5;
   if (minOdd < 2.0) {
-    // Se há um grande favorito, a média esperada de gols aumenta significativamente
-    avgGoals = 2.5 + (2.0 - minOdd) * 1.8;
+    // Se há um grande favorito, a média esperada de gols aumenta significativamente (fator 2.0x)
+    avgGoals = 2.5 + (2.0 - minOdd) * 2.0;
   } else {
-    // Para jogos equilibrados, ajusta conforme a odd do empate (quanto menor, mais truncado)
+    // Para jogos equilibrados, ajusta conforme a odd do empate (quanto menor a odd do empate, mais truncado o jogo)
     avgGoals = 2.5 + (safeDraw - 3.20) * 0.4;
     avgGoals = Math.max(2.0, Math.min(3.0, avgGoals));
   }
-  
+  return avgGoals;
+}
+
+// Calcula odds de Over/Under usando Distribuição de Poisson
+function calculateOverUnderOdds(avgGoals: number) {
   const lambda = avgGoals;
   const p0 = Math.exp(-lambda);
   const p1 = p0 * lambda;
@@ -64,7 +69,7 @@ function calculateOverUnderOdds(homeOdd: number, drawOdd: number, awayOdd: numbe
   const pOver35 = 1 - pUnder35;
   const pOver45 = 1 - pUnder45;
   
-  // Margem de lucro da casa de apostas (ex.: payout de 90%)
+  // Margem de lucro da casa de apostas (payout de 90%)
   const payout = 0.90;
   
   const formatOdd = (prob: number): number => {
@@ -84,6 +89,45 @@ function calculateOverUnderOdds(homeOdd: number, drawOdd: number, awayOdd: numbe
     under35: formatOdd(pUnder35),
     over45: formatOdd(pOver45),
     under45: formatOdd(pUnder45),
+  };
+}
+
+// Calcula odds de Ambas Equipes Marcam (BTTS) baseadas no favoritismo e média de gols via Poisson
+function calculateBttsOdds(homeOdd: number, drawOdd: number, awayOdd: number, avgGoals: number) {
+  const hProb = 1 / (homeOdd || 2.0);
+  const aProb = 1 / (awayOdd || 2.0);
+  const totalProb = hProb + aProb;
+  
+  // Fração de gols esperados de cada equipe baseada em força relativa
+  const favShare = hProb > aProb ? (hProb / totalProb) : (aProb / totalProb);
+  const undShare = 1 - favShare;
+  
+  const lambdaFav = avgGoals * favShare;
+  const lambdaUnd = avgGoals * undShare;
+  
+  const pFavZero = Math.exp(-lambdaFav);
+  const pUndZero = Math.exp(-lambdaUnd);
+  
+  // Ambas marcam = (Fav faz >=1 gol) E (Und faz >=1 gol)
+  const pBttsYes = (1 - pFavZero) * (1 - pUndZero);
+  const pBttsNo = 1 - pBttsYes;
+  
+  const payout = 0.93; // Payout ligeiramente maior para BTTS para manter competitividade
+  
+  let bttsYes = pBttsYes > 0 ? (payout / pBttsYes) : 100.0;
+  let bttsNo = pBttsNo > 0 ? (payout / pBttsNo) : 100.0;
+  
+  // Suavização para BTTS No quando é extremamente baixo (como em favoritos absolutos)
+  if (bttsNo < 1.30) {
+    bttsNo = 1.30 - (1.30 - bttsNo) * 0.6;
+  }
+  
+  bttsYes = Math.max(1.01, Math.min(100.0, bttsYes));
+  bttsNo = Math.max(1.01, Math.min(100.0, bttsNo));
+  
+  return {
+    yes: Number(bttsYes.toFixed(2)),
+    no: Number(bttsNo.toFixed(2)),
   };
 }
 
@@ -143,10 +187,9 @@ function buildMatchFromEvent(event: any, leagueName: string, now: Date, spNow: D
     drawOdd = americanToDecimal(oddsData.drawOdds.moneyLine) || 3.20;
   }
 
-  const oOdds = calculateOverUnderOdds(homeOdd, drawOdd, awayOdd);
-
-  const bttsYes = Number((1.2 + (drawOdd / 4)).toFixed(2));
-  const bttsNo = Number((2.0 + (homeOdd > awayOdd ? 0.2 : -0.2)).toFixed(2));
+  const avgGoals = getAvgGoals(homeOdd, drawOdd, awayOdd);
+  const oOdds = calculateOverUnderOdds(avgGoals);
+  const bttsOdds = calculateBttsOdds(homeOdd, drawOdd, awayOdd, avgGoals);
 
   const dc1x = Number((1 / ((1 / homeOdd) + (1 / drawOdd))).toFixed(2));
   const dcx2 = Number((1 / ((1 / awayOdd) + (1 / drawOdd))).toFixed(2));
@@ -182,8 +225,8 @@ function buildMatchFromEvent(event: any, leagueName: string, now: Date, spNow: D
       under35: oOdds.under35,
       over45: oOdds.over45,
       under45: oOdds.under45,
-      bttsYes,
-      bttsNo,
+      bttsYes: bttsOdds.yes,
+      bttsNo: bttsOdds.no,
       dc1x,
       dcx2,
       dc12,
