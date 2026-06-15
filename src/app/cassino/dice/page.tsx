@@ -48,8 +48,8 @@ function DiceBackdrop() {
 }
 
 function calcMultiplier(winChance: number): number {
-  // RTP 110% — multiplier = 110/winChance
-  return Math.round((110 / winChance) * 100) / 100;
+  // RTP 98% — multiplier = 98/winChance
+  return Math.round((98 / winChance) * 100) / 100;
 }
 
 function DiceSlider({
@@ -73,7 +73,7 @@ function DiceSlider({
       const track = trackRef.current;
       if (!track) return;
       const rect = track.getBoundingClientRect();
-      const pct = Math.min(98, Math.max(2, ((e.clientX - rect.left) / rect.width) * 100));
+      const pct = Math.min(95, Math.max(5, ((e.clientX - rect.left) / rect.width) * 100));
       onChange(Math.round(pct * 100) / 100);
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
     },
@@ -86,7 +86,7 @@ function DiceSlider({
       const track = trackRef.current;
       if (!track) return;
       const rect = track.getBoundingClientRect();
-      const pct = Math.min(98, Math.max(2, ((e.clientX - rect.left) / rect.width) * 100));
+      const pct = Math.min(95, Math.max(5, ((e.clientX - rect.left) / rect.width) * 100));
       onChange(Math.round(pct * 100) / 100);
     },
     [disabled, onChange],
@@ -207,20 +207,20 @@ export default function DicePage() {
   const multiplier = calcMultiplier(winChance);
   const isRolling = phase === "rolling";
 
-  const handleRollOverChange = (v: number) => setRollOver(Math.min(98, Math.max(2, v)));
+  const handleRollOverChange = (v: number) => setRollOver(Math.min(95, Math.max(5, v)));
 
   const handleMultiplierChange = (raw: string) => {
     const m = parseFloat(raw.replace(",", "."));
-    if (!isNaN(m) && m >= 1.12) {
-      const wc = 110 / m;
-      setRollOver(Math.min(98, Math.max(2, Math.round((100 - wc) * 100) / 100)));
+    if (!isNaN(m) && m >= 1.03) {
+      const wc = 98 / m;
+      setRollOver(Math.min(95, Math.max(5, Math.round((100 - wc) * 100) / 100)));
     }
   };
 
   const handleWinChanceChange = (raw: string) => {
     const wc = parseFloat(raw.replace(",", "."));
-    if (!isNaN(wc) && wc > 0 && wc < 98)
-      setRollOver(Math.min(98, Math.max(2, Math.round((100 - wc) * 100) / 100)));
+    if (!isNaN(wc) && wc >= 5 && wc <= 95)
+      setRollOver(Math.min(95, Math.max(5, Math.round((100 - wc) * 100) / 100)));
   };
 
   const roll = async () => {

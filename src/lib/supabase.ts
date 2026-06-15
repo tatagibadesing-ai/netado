@@ -15,7 +15,12 @@ export async function adjustBalance(userId: string, delta: number): Promise<numb
     delta_amount: delta,
   })
   if (error) {
-    console.error('adjust_balance failed', error, { userId, delta })
+    console.error('adjust_balance failed', {
+      message: error.message,
+      details: error.details,
+      code: error.code,
+      hint: error.hint
+    }, { userId, delta })
     return null
   }
   if (data === null || data === undefined) {
@@ -50,7 +55,12 @@ export async function adjustWcBalance(userId: string, delta: number): Promise<nu
     delta_amount: delta,
   })
   if (error) {
-    console.error('adjust_wc_balance failed', error, { userId, delta })
+    console.error('adjust_wc_balance failed', {
+      message: error.message,
+      details: error.details,
+      code: error.code,
+      hint: error.hint
+    }, { userId, delta })
     return null
   }
   if (data === null || data === undefined) {
