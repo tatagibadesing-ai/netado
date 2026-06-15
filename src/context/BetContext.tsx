@@ -433,7 +433,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
           homeTeam: teamName,
           awayTeam: "Campeão da Copa",
           homeLogo: teamLogo,
-          awayLogo: "/logocopa.png"
+          awayLogo: "/logocopa.webp"
         }
       ],
       totalOdds: oddValue,

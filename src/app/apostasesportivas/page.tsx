@@ -136,7 +136,7 @@ export default function ApostasEsportivas() {
                       />
                       
                       <div className="relative z-10 flex flex-col items-center gap-3">
-                        <img src="/logocopa.png" alt="Copa do Mundo 2026" className="h-16 md:h-20 w-auto object-contain mb-2" />
+                        <img src="/logocopa.webp" alt="Copa do Mundo 2026" className="h-16 md:h-20 w-auto object-contain mb-2" />
                         <h2 className="text-2xl md:text-4xl font-semibold text-white tracking-tight font-sans">
                           Bolão da Copa do Mundo 2026
                         </h2>
@@ -184,7 +184,7 @@ export default function ApostasEsportivas() {
                           />
                           
                           <div className="flex items-start md:items-center gap-4 relative z-10 w-full md:w-auto">
-                            <img src="/logocopa.png" alt="Copa do Mundo 2026" className="h-12 md:h-16 w-auto object-contain shrink-0" />
+                            <img src="/logocopa.webp" alt="Copa do Mundo 2026" className="h-12 md:h-16 w-auto object-contain shrink-0" />
                             <div className="flex-1">
                               <h3 className="text-lg md:text-xl font-bold text-white leading-tight">
                                 Seu Painel do Bolão da Copa
