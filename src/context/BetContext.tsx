@@ -53,6 +53,8 @@ interface BetContextType {
   wcBalance: number;
   joinWcCompetition: () => Promise<void>;
   placeWinnerBet: (teamName: string, teamLogo: string, oddValue: number, amount: number) => Promise<boolean>;
+  fullName: string | null;
+  setFullName: (name: string | null) => void;
 }
 
 const BetContext = createContext<BetContextType | undefined>(undefined);
@@ -101,14 +103,16 @@ export function BetProvider({ children }: { children: ReactNode }) {
   // Estados do bolão da copa
   const [wcJoined, setWcJoined] = useState<boolean>(false);
   const [wcBalance, setWcBalance] = useState<number>(1000.0);
+  const [fullName, setFullNameState] = useState<string | null>(null);
 
   // ── Auth ───────────────────────────────────────────────────────────
-  const login = (uid: string, uname: string, bal: number, wcJoinedVal?: boolean, wcBalanceVal?: number) => {
+  const login = (uid: string, uname: string, bal: number, wcJoinedVal?: boolean, wcBalanceVal?: number, fName?: string | null) => {
     setUserId(uid);
     setUsername(uname);
     setBalance(bal);
     setWcJoined(wcJoinedVal ?? false);
     setWcBalance(wcBalanceVal ?? 1000.00);
+    setFullNameState(fName ?? null);
     setIsLoggedIn(true);
     localStorage.setItem("netano_user", JSON.stringify({ uid, uname }));
   };
@@ -121,6 +125,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
     setBetSlip([]);
     setWcJoined(false);
     setWcBalance(1000.00);
+    setFullNameState(null);
     localStorage.removeItem("netano_user");
   };
 
@@ -159,13 +164,14 @@ export function BetProvider({ children }: { children: ReactNode }) {
     if (saved) {
       try {
         const { uid, uname } = JSON.parse(saved);
-        supabase.from("netano_profiles").select("balance, wc_joined, wc_balance").eq("id", uid).single().then(({ data }) => {
+        supabase.from("netano_profiles").select("balance, wc_joined, wc_balance, full_name").eq("id", uid).single().then(({ data }) => {
           if (data) {
             setUserId(uid);
             setUsername(uname);
             setBalance(data.balance);
             setWcJoined(data.wc_joined ?? false);
             setWcBalance(Number(data.wc_balance) ?? 1000.00);
+            setFullNameState(data.full_name ?? null);
             setIsLoggedIn(true);
           } else {
             localStorage.removeItem("netano_user");
@@ -483,7 +489,8 @@ export function BetProvider({ children }: { children: ReactNode }) {
         selectedLeague, activeTab,
         addToSlip, removeFromSlip, clearSlip, placeBet, resetAll,
         refreshMatches: fetchMatches, setSelectedLeague, setActiveTab,
-        wcJoined, wcBalance, joinWcCompetition, placeWinnerBet
+        wcJoined, wcBalance, joinWcCompetition, placeWinnerBet,
+        fullName, setFullName: setFullNameState
       }}
     >
       {children}
