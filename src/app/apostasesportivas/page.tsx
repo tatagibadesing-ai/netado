@@ -144,7 +144,7 @@ export default function ApostasEsportivas() {
                           Entre no grupo oficial da Copa e compita com os outros usuários! <br className="hidden md:inline" />
                           Todos começam com saldo virtual fixo para ver quem é o <span className="text-[#FF3C00] font-semibold">verdadeiro mestre das previsões</span>.
                         </p>
-                        <div className="inline-flex flex-wrap items-center justify-center gap-x-2 gap-y-1 bg-[#FF3C00]/15 rounded-xl px-4 py-2 mt-1">
+                        <div className="inline-flex flex-wrap items-center justify-center gap-x-2 gap-y-1 bg-[#121212]/70 rounded-xl px-4 py-2 mt-1">
                           <span className="text-xs md:text-sm font-bold text-white">O pódio ganha dinheiro!</span>
                           <span className="text-xs md:text-sm text-slate-200">
                             1º <span className="text-[#FFD700] font-bold">6,7%</span> · 2º <span className="font-bold">2%</span> · 3º <span className="text-[#CD7F32] font-bold">1%</span> do próprio saldo
