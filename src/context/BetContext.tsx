@@ -11,6 +11,7 @@ export interface SlipItem {
   homeTeam?: string;
   awayTeam?: string;
   homeLogo?: string;
+
   awayLogo?: string;
   finalHomeScore?: number;
   finalAwayScore?: number;
@@ -25,6 +26,7 @@ export interface PlacedBet {
   potentialReturn: number;
   status: "pending" | "won" | "lost" | "cancelled";
   isWcBet?: boolean;
+  userNotified?: boolean;
 }
 
 interface BetContextType {
@@ -56,6 +58,7 @@ interface BetContextType {
   placeWinnerBet: (teamName: string, teamLogo: string, oddValue: number, amount: number) => Promise<boolean>;
   fullName: string | null;
   setFullName: (name: string | null) => void;
+  markBetsAsNotified: (betIds: string[]) => Promise<void>;
 }
 
 const BetContext = createContext<BetContextType | undefined>(undefined);
@@ -242,6 +245,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
             potentialReturn: b.potential_return,
             status: b.status,
             isWcBet: b.is_wc_bet,
+            userNotified: b.user_notified,
           }));
           setPlacedBets(mapped);
         }
@@ -444,6 +448,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
       potentialReturn: amount * totalOdds,
       status: "pending",
       isWcBet,
+      userNotified: false,
     };
 
     if (isWcBet) {
@@ -468,6 +473,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
       potential_return: newBet.potentialReturn,
       status: newBet.status,
       is_wc_bet: newBet.isWcBet,
+      user_notified: false,
     });
   };
 
@@ -502,6 +508,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
       potentialReturn: amount * oddValue,
       status: "pending",
       isWcBet: true,
+      userNotified: false,
     };
 
     const nb = await adjustWcBalance(userId, -amount);
@@ -519,9 +526,28 @@ export function BetProvider({ children }: { children: ReactNode }) {
       potential_return: newBet.potentialReturn,
       status: newBet.status,
       is_wc_bet: newBet.isWcBet,
+      user_notified: false,
     });
 
     return true;
+  };
+
+  const markBetsAsNotified = async (betIds: string[]) => {
+    if (betIds.length === 0) return;
+    try {
+      const { error } = await supabase
+        .from("netano_bets")
+        .update({ user_notified: true })
+        .in("id", betIds);
+
+      if (!error) {
+        setPlacedBets(prev =>
+          prev.map((b) => betIds.includes(b.id) ? { ...b, userNotified: true } : b)
+        );
+      }
+    } catch (err) {
+      console.error("Erro ao marcar apostas como notificadas:", err);
+    }
   };
 
   const resetAll = () => {
@@ -546,7 +572,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
         addToSlip, canAddToSlip, removeFromSlip, clearSlip, placeBet, resetAll,
         refreshMatches: fetchMatches, setSelectedLeague, setActiveTab,
         wcJoined, wcBalance, joinWcCompetition, placeWinnerBet,
-        fullName, setFullName: setFullNameState
+        fullName, setFullName: setFullNameState, markBetsAsNotified
       }}
     >
       {children}

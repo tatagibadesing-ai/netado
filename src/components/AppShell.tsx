@@ -6,6 +6,7 @@ import { useBet } from "@/context/BetContext";
 import { Navbar } from "@/components/Navbar";
 import { Sidebar } from "@/components/Sidebar";
 import { LegacyUserBlock } from "@/components/LegacyUserBlock";
+import { ResolvedBetsModal } from "@/components/ResolvedBetsModal";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { isLoggedIn, isCheckingAuth, fullName, setFullName, userId } = useBet();
@@ -51,6 +52,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {!fullName && userId && (
         <LegacyUserBlock userId={userId} onSaved={(name) => setFullName(name)} />
+      )}
+
+      {userId && (
+        <ResolvedBetsModal />
       )}
     </>
   );
