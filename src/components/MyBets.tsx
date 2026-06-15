@@ -13,6 +13,7 @@ export function MyBets() {
     switch (status) {
       case "won": return <CheckCircle2 className="w-5 h-5 text-[#FF3C00]" />;
       case "lost": return <XCircle className="w-5 h-5 text-red-500" />;
+      case "cancelled": return <Trash2 className="w-5 h-5 text-slate-500" />;
       default: return <Clock className="w-5 h-5 text-amber-500" />;
     }
   };
@@ -70,6 +71,7 @@ export function MyBets() {
                       {bet.status === "pending" && "Pendente"}
                       {bet.status === "won" && <span className="text-[#FF3C00]">Ganha</span>}
                       {bet.status === "lost" && <span className="text-red-500">Perdida</span>}
+                      {bet.status === "cancelled" && <span className="text-slate-500">Anulada</span>}
                     </span>
                   </div>
                   <span className="text-xs text-slate-500 font-mono bg-[#080808] px-2 py-1 rounded">

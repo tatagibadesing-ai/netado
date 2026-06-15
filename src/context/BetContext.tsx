@@ -23,7 +23,7 @@ export interface PlacedBet {
   picks: SlipItem[];
   totalOdds: number;
   potentialReturn: number;
-  status: "pending" | "won" | "lost";
+  status: "pending" | "won" | "lost" | "cancelled";
   isWcBet?: boolean;
 }
 
