@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { supabase } from "@/lib/supabase";
 
 interface LoginPageProps {
   onLogin: (userId: string, username: string, balance: number, wcJoined?: boolean, wcBalance?: number) => void;
@@ -28,6 +27,7 @@ const SLIDES = [
 
 export function LoginPage({ onLogin }: LoginPageProps) {
   const [username, setUsername] = useState("");
+  const [fullName, setFullName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -48,26 +48,21 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     setError(null);
 
     try {
-      let { data: profile, error: fetchError } = await supabase
-        .from("netano_profiles")
-        .select("*")
-        .eq("username", clean)
-        .single();
-
-      if (fetchError && fetchError.code === "PGRST116") {
-        const { data: newProfile, error: insertError } = await supabase
-          .from("netano_profiles")
-          .insert({ username: clean, balance: 1000 })
-          .select("*")
-          .single();
-        if (insertError) throw insertError;
-        profile = newProfile;
-      } else if (fetchError) {
-        throw fetchError;
+      // Vai pela rota de servidor: ela faz login-ou-criar, exige nome completo só
+      // em conta nova, bloqueia 2ª conta no mesmo IP e nunca devolve nome/IP.
+      const res = await fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: clean, fullName: fullName.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data?.error || "Erro ao entrar. Tente novamente.");
+        return;
       }
-
+      const profile = data?.profile;
       if (profile) onLogin(profile.id, profile.username, profile.balance, profile.wc_joined, profile.wc_balance);
-    } catch (err: any) {
+    } catch {
       setError("Erro ao entrar. Tente novamente.");
     } finally {
       setIsLoading(false);
@@ -130,6 +125,20 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                  autoFocus
                  disabled={isLoading}
                />
+             </div>
+
+             <div className="flex flex-col gap-1.5">
+               <input
+                 type="text"
+                 value={fullName}
+                 onChange={(e) => setFullName(e.target.value)}
+                 placeholder="Nome completo (só no 1º acesso)"
+                 className="w-full bg-[#121212] text-white font-semibold placeholder-slate-600 rounded-lg px-4 py-4 text-sm border border-white/5 focus:outline-none focus:border-[#FF3C00] transition-all"
+                 disabled={isLoading}
+               />
+               <p className="text-[11px] text-slate-600 font-medium px-1 leading-relaxed">
+                 Usado só por segurança contra contas falsas — não aparece no app nem para outros jogadores.
+               </p>
              </div>
 
             {error && (
