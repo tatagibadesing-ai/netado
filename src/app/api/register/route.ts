@@ -48,13 +48,32 @@ export async function POST(req: Request) {
   // em outras contas pelo mesmo IP.
   const { data: existing, error: exErr } = await supabaseAdmin
     .from("netano_profiles")
-    .select("id, username, balance, wc_joined, wc_balance, signup_ip")
+    .select("id, username, balance, wc_joined, wc_balance, signup_ip, full_name")
     .eq("username", username)
     .maybeSingle();
   if (exErr) {
     return NextResponse.json({ error: "Erro ao entrar. Tente novamente." }, { status: 500 });
   }
   if (existing) {
+    // Se a conta já existe mas o nome completo está nulo/em branco (usuários antigos),
+    // exige que ele informe o nome completo para atualizar o cadastro.
+    if (!existing.full_name) {
+      if (fullName.length < 3 || !fullName.includes(" ")) {
+        return NextResponse.json(
+          { error: "Informe seu nome completo (nome e sobrenome) para atualizar seu cadastro." },
+          { status: 400 }
+        );
+      }
+
+      const { error: updNameErr } = await supabaseAdmin
+        .from("netano_profiles")
+        .update({ full_name: fullName })
+        .eq("id", existing.id);
+      if (updNameErr) {
+        return NextResponse.json({ error: "Erro ao atualizar cadastro. Tente novamente." }, { status: 500 });
+      }
+    }
+
     if (!isLocalIp(ip)) {
       // Outro perfil já vinculado/acessou este IP? Bloqueia o acesso a esta conta.
       const { data: ipOwner } = await supabaseAdmin
