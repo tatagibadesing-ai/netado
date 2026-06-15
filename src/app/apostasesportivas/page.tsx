@@ -140,10 +140,16 @@ export default function ApostasEsportivas() {
                         <h2 className="text-2xl md:text-4xl font-semibold text-white tracking-tight font-sans">
                           Bolão da Copa do Mundo 2026
                         </h2>
-                        <p className="text-slate-300 text-xs md:text-sm max-w-2xl leading-relaxed font-light">
+                        <p className="text-slate-100 text-xs md:text-sm max-w-2xl leading-relaxed font-light">
                           Entre no grupo oficial da Copa e compita com os outros usuários! <br className="hidden md:inline" />
                           Todos começam com saldo virtual fixo para ver quem é o <span className="text-[#FF3C00] font-semibold">verdadeiro mestre das previsões</span>.
                         </p>
+                        <div className="inline-flex flex-wrap items-center justify-center gap-x-2 gap-y-1 bg-[#FF3C00]/15 rounded-xl px-4 py-2 mt-1">
+                          <span className="text-xs md:text-sm font-bold text-white">O pódio ganha dinheiro!</span>
+                          <span className="text-xs md:text-sm text-slate-200">
+                            1º <span className="text-[#FFD700] font-bold">6,7%</span> · 2º <span className="font-bold">2%</span> · 3º <span className="text-[#CD7F32] font-bold">1%</span> do próprio saldo
+                          </span>
+                        </div>
                       </div>
 
                       <button
@@ -487,15 +493,15 @@ export default function ApostasEsportivas() {
                               )}
 
                               {isLoadingRanking ? (
-                                <div className="flex items-center justify-center py-12 text-slate-500 bg-[#121212] rounded-xl border border-white/5">
+                                <div className="flex items-center justify-center py-12 text-slate-500 bg-[#121212] rounded-xl">
                                   <RefreshCcw className="w-6 h-6 animate-spin text-[#FF3C00]" />
                                 </div>
                               ) : ranking.length === 0 ? (
-                                <div className="text-center py-10 text-slate-400 bg-[#121212] rounded-xl border border-white/5">
+                                <div className="text-center py-10 text-slate-400 bg-[#121212] rounded-xl">
                                   Ninguém no ranking ainda. <span className="text-white font-semibold">Seja o primeiro a apostar!</span>
                                 </div>
                               ) : (
-                                <div className="bg-[#121212] rounded-xl border border-white/5 overflow-hidden relative shadow-2xl">
+                                <div className="bg-[#121212] rounded-xl overflow-hidden relative shadow-2xl">
                                   {/* SVG discreto de fundo na área do cabeçalho */}
                                   <div
                                     className="absolute top-0 left-0 right-0 pointer-events-none opacity-100 z-0"
