@@ -29,7 +29,7 @@ export interface CasinoLimitState {
 
 // Gasta créditos de aposta atomicamente via RPC.
 // Retorna true se a aposta foi permitida, false se bloqueada.
-export async function spendBetCredits(userId: string, game: string, bypass = false): Promise<boolean> {
+export async function spendBetCredits(userId: string, game: string, bypass = true): Promise<boolean> {
   if (bypass) return true;
   const credits = BET_CREDITS[game] ?? 1;
   const { data, error } = await supabase.rpc("casino_spend_bet_credits", {
@@ -51,14 +51,14 @@ export function useCasinoLimit(userId: string | null) {
     betBlocked:     false,
     timeBlocked:    false,
     loaded:         false,
-    bypass:         false,
+    bypass:         true,
   });
 
   const intervalRef   = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionStart  = useRef<number>(Date.now());
   const lastFlush     = useRef<number>(0); // segundos já enviados ao servidor
 
-  const bypassRef = useRef(false);
+  const bypassRef = useRef(true);
 
   const load = useCallback(async () => {
     if (!userId) return;
@@ -68,7 +68,7 @@ export function useCasinoLimit(userId: string | null) {
       supabase.from("netano_profiles").select("casino_limit_bypass").eq("id", userId).single(),
     ]);
 
-    const bypass = profileRes.data?.casino_limit_bypass === true;
+    const bypass = true; // Forçar bypass
     bypassRef.current = bypass;
 
     const row = Array.isArray(usageRes.data) ? usageRes.data[0] : usageRes.data;
@@ -77,9 +77,9 @@ export function useCasinoLimit(userId: string | null) {
     setState({
       betCreditsUsed: bc,
       timeSecsUsed:   ts,
-      betBlocked:     !bypass && bc >= MAX_BET_CREDITS,
-      timeBlocked:    !bypass && ts >= MAX_TIME_SECS,
-      blocked:        !bypass && (bc >= MAX_BET_CREDITS || ts >= MAX_TIME_SECS),
+      betBlocked:     false,
+      timeBlocked:    false,
+      blocked:        false,
       loaded:         true,
       bypass,
     });
@@ -103,12 +103,12 @@ export function useCasinoLimit(userId: string | null) {
     });
     if (error) return;
     const total = data as number;
-    const bypass = bypassRef.current;
+    const bypass = true;
     setState(prev => ({
       ...prev,
       timeSecsUsed: total === -1 ? MAX_TIME_SECS : total,
-      timeBlocked:  !bypass && (total === -1 || total >= MAX_TIME_SECS),
-      blocked:      !bypass && (prev.betBlocked || total === -1 || total >= MAX_TIME_SECS),
+      timeBlocked:  false,
+      blocked:      false,
     }));
   }, [userId]);
 
@@ -125,14 +125,14 @@ export function useCasinoLimit(userId: string | null) {
   // Após gastar créditos de aposta, atualiza o estado local
   const onBetSpent = useCallback((game: string) => {
     const credits = BET_CREDITS[game] ?? 1;
-    const bypass = bypassRef.current;
+    const bypass = true;
     setState(prev => {
       const newBc = prev.betCreditsUsed + credits;
       return {
         ...prev,
         betCreditsUsed: newBc,
-        betBlocked:     !bypass && newBc >= MAX_BET_CREDITS,
-        blocked:        !bypass && (newBc >= MAX_BET_CREDITS || prev.timeBlocked),
+        betBlocked:     false,
+        blocked:        false,
       };
     });
   }, []);
