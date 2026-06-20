@@ -126,16 +126,24 @@ function matchOdd(items: SlipPick[], match: Match | undefined): number {
   // 1 palpite: usa a odd exibida (idêntica ao botão).
   if (items.length === 1) return items[0].oddValue;
 
+  const productOdd = items.reduce((acc, i) => acc * i.oddValue, 1);
+  const maxLegOdd = Math.max(...items.map(i => i.oddValue));
+
   if (match) {
     const p = jointProbForMatch(items.map(i => i.oddType), match);
     if (p && p > 0) {
-      const odd = COMBO_PAYOUT / p;
-      return Math.max(1.01, Math.min(100, Number(odd.toFixed(2))));
+      const modelOdd = COMBO_PAYOUT / p;
+      // Limites de sanidade:
+      //  • nunca MENOR que a perna mais cara — juntar mais condições só pode
+      //    deixar mais difícil de ganhar (senão juntar palpites pioraria a odd);
+      //  • nunca MAIOR que o produto independente — correlação positiva (o
+      //    exploit) só reduz a odd, jamais a infla acima da multiplicação.
+      const odd = Math.min(productOdd, Math.max(maxLegOdd, modelOdd));
+      return Number(odd.toFixed(2));
     }
   }
-  // Sem modelo: fallback conservador — nunca paga mais que a perna mais
-  // improvável, em vez de multiplicar e inflar.
-  return Math.max(...items.map(i => i.oddValue));
+  // Sem modelo: fallback conservador (perna mais cara), nunca o produto inflado.
+  return Number(maxLegOdd.toFixed(2));
 }
 
 // Odd total do cupom: combina por partida (probabilidade conjunta) e multiplica
