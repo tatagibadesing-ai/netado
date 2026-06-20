@@ -80,9 +80,10 @@ function poisson(lambda: number, k: number): number {
   return (Math.exp(-lambda) * Math.pow(lambda, k)) / fact;
 }
 
-// Probabilidade de TODOS os palpites de uma partida vencerem juntos, somando a
-// massa dos placares que satisfazem todos. Retorna null se não der pra modelar.
-function jointProbForMatch(oddTypes: OddType[], match: Match): number | null {
+// Constrói a distribuição de placares da partida (Poisson independente por time,
+// com as taxas reconstruídas do 1x2) e devolve uma função que dá a probabilidade
+// de um conjunto de palpites vencer. Retorna null se não der pra modelar.
+function buildScoreModel(match: Match): ((oddTypes: OddType[]) => number) | null {
   const { home, draw, away } = match.odds;
   if (!home || !away) return null;
 
@@ -101,19 +102,24 @@ function jointProbForMatch(oddTypes: OddType[], match: Match): number | null {
   }
 
   let norm = 0;
-  let joint = 0;
+  const grid: Array<[number, number, number]> = [];
   for (let h = 0; h <= MAX_GOALS; h++) {
     for (let a = 0; a <= MAX_GOALS; a++) {
       const p = ph[h] * pa[a];
       norm += p;
-      if (oddTypes.every(t => doesPickMatchScore(t, h, a))) joint += p;
+      grid.push([h, a, p]);
     }
   }
   if (norm <= 0) return null;
-  return joint / norm; // renormaliza pela massa truncada do grid
-}
 
-const COMBO_PAYOUT = 0.90; // mesma margem (~10%) do Over/Under na API
+  return (oddTypes: OddType[]) => {
+    let s = 0;
+    for (const [h, a, p] of grid) {
+      if (oddTypes.every(t => doesPickMatchScore(t, h, a))) s += p;
+    }
+    return s / norm; // renormaliza pela massa truncada do grid
+  };
+}
 
 export interface SlipPick {
   matchId: string;
@@ -122,6 +128,12 @@ export interface SlipPick {
 }
 
 // Odd combinada dos palpites de UMA partida.
+//
+// Ancoramos no PRODUTO das odds exibidas (que já carregam a margem da casa) e
+// só descontamos a CORRELAÇÃO entre os mercados: R = P(conjunta) / P(produto das
+// marginais). Para eventos independentes R≈1 (mantém o produto); para mercados
+// positivamente correlacionados — o exploit, ex.: 0-0 satisfaz "Menos de 0.5",
+// "Empate" e "Ambas Não" — R fica grande e derruba a odd para perto da realidade.
 function matchOdd(items: SlipPick[], match: Match | undefined): number {
   // 1 palpite: usa a odd exibida (idêntica ao botão).
   if (items.length === 1) return items[0].oddValue;
@@ -129,16 +141,19 @@ function matchOdd(items: SlipPick[], match: Match | undefined): number {
   const productOdd = items.reduce((acc, i) => acc * i.oddValue, 1);
   const maxLegOdd = Math.max(...items.map(i => i.oddValue));
 
-  if (match) {
-    const p = jointProbForMatch(items.map(i => i.oddType), match);
-    if (p && p > 0) {
-      const modelOdd = COMBO_PAYOUT / p;
+  const prob = match ? buildScoreModel(match) : null;
+  if (prob) {
+    const types = items.map(i => i.oddType);
+    const qJoint = prob(types);
+    const qIndep = types.reduce((acc, t) => acc * prob([t]), 1);
+    if (qJoint > 0 && qIndep > 0) {
+      const correlation = qJoint / qIndep; // >1 = positivamente correlacionado
+      const corrected = productOdd / correlation;
       // Limites de sanidade:
       //  • nunca MENOR que a perna mais cara — juntar mais condições só pode
       //    deixar mais difícil de ganhar (senão juntar palpites pioraria a odd);
-      //  • nunca MAIOR que o produto independente — correlação positiva (o
-      //    exploit) só reduz a odd, jamais a infla acima da multiplicação.
-      const odd = Math.min(productOdd, Math.max(maxLegOdd, modelOdd));
+      //  • nunca MAIOR que o produto — correlação só reduz, jamais infla.
+      const odd = Math.min(productOdd, Math.max(maxLegOdd, corrected));
       return Number(odd.toFixed(2));
     }
   }
