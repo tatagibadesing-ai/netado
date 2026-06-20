@@ -65,15 +65,6 @@ interface BetContextType {
 
 const BetContext = createContext<BetContextType | undefined>(undefined);
 
-type MarketGroup = "result" | "totals" | "btts" | "champion";
-
-const getMarketGroup = (oddType: OddType): MarketGroup => {
-  if (["home", "draw", "away", "dc1x", "dcx2", "dc12"].includes(oddType)) return "result";
-  if (oddType.startsWith("over") || oddType.startsWith("under")) return "totals";
-  if (oddType === "bttsYes" || oddType === "bttsNo") return "btts";
-  return "champion";
-};
-
 const doesPickMatchScore = (oddType: OddType, homeScore: number, awayScore: number): boolean => {
   const total = homeScore + awayScore;
 
@@ -98,19 +89,6 @@ const doesPickMatchScore = (oddType: OddType, homeScore: number, awayScore: numb
     case "dc12": return homeScore !== awayScore;
     default: return false;
   }
-};
-
-const arePicksCompatible = (oddTypes: OddType[]): boolean => {
-  const groups = oddTypes.map(getMarketGroup);
-  if (new Set(groups).size !== groups.length) return false;
-
-  for (let homeScore = 0; homeScore <= 10; homeScore++) {
-    for (let awayScore = 0; awayScore <= 10; awayScore++) {
-      if (oddTypes.every(type => doesPickMatchScore(type, homeScore, awayScore))) return true;
-    }
-  }
-
-  return false;
 };
 
 export const isPickWon = (pick: SlipItem, match: Match): boolean | null => {
@@ -398,28 +376,17 @@ export function BetProvider({ children }: { children: ReactNode }) {
   }, [matches, userId]);
 
   // ── Slip actions ───────────────────────────────────────────────────
-  const canAddToSlip = (matchId: string, oddType: OddType) => {
-    const selectedGroup = getMarketGroup(oddType);
-    const otherPicks = betSlip.filter(
-      item => item.matchId === matchId && getMarketGroup(item.oddType) !== selectedGroup
-    );
-
-    return arePicksCompatible([...otherPicks.map(item => item.oddType), oddType]);
-  };
+  // Só uma seleção por partida — selecionar outro mercado da mesma partida
+  // troca o palpite anterior (ver addToSlip). Por isso nada fica "incompatível".
+  const canAddToSlip = () => true;
 
   const addToSlip = (matchId: string, oddType: OddType, oddValue: number) => {
     setBetSlip(prev => {
-      const selectedGroup = getMarketGroup(oddType);
-      const otherPicks = prev.filter(
-        item => item.matchId === matchId && getMarketGroup(item.oddType) !== selectedGroup
-      );
-
-      if (!arePicksCompatible([...otherPicks.map(item => item.oddType), oddType])) return prev;
-
-      // Troca apenas o palpite da mesma categoria e mantém mercados complementares.
-      const filtered = prev.filter(
-        item => item.matchId !== matchId || getMarketGroup(item.oddType) !== selectedGroup
-      );
+      // Só uma seleção por partida: combinar mercados correlacionados da MESMA
+      // partida (ex.: "Menos de 0.5" + "Empate" + "Ambas Não" — todos o mesmo
+      // 0-0) e multiplicar as odds infla o prêmio de graça. Trocamos qualquer
+      // palpite anterior dessa partida pelo novo.
+      const filtered = prev.filter(item => item.matchId !== matchId);
       return [...filtered, { matchId, oddType, oddValue }];
     });
   };
@@ -437,8 +404,8 @@ export function BetProvider({ children }: { children: ReactNode }) {
       groups[item.matchId] = [...(groups[item.matchId] || []), item.oddType];
       return groups;
     }, {});
-    if (Object.values(picksByMatch).some(oddTypes => !arePicksCompatible(oddTypes))) {
-      console.error("O cupom contém mercados duplicados ou incompatíveis na mesma partida.");
+    if (Object.values(picksByMatch).some(oddTypes => oddTypes.length > 1)) {
+      console.error("O cupom permite apenas uma seleção por partida.");
       return;
     }
 
