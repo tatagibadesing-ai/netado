@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Match, OddType, initialMatches } from "../data/matches";
 import { supabase, adjustBalance, adjustWcBalance } from "../lib/supabase";
+import { doesPickMatchScore, getMarketGroup, picksCanCoexist, computeTotalOdds } from "../lib/odds";
 
 export interface SlipItem {
   matchId: string;
@@ -64,32 +65,6 @@ interface BetContextType {
 }
 
 const BetContext = createContext<BetContextType | undefined>(undefined);
-
-const doesPickMatchScore = (oddType: OddType, homeScore: number, awayScore: number): boolean => {
-  const total = homeScore + awayScore;
-
-  switch (oddType) {
-    case "home": return homeScore > awayScore;
-    case "draw": return homeScore === awayScore;
-    case "away": return homeScore < awayScore;
-    case "over05": return total > 0.5;
-    case "under05": return total < 0.5;
-    case "over15": return total > 1.5;
-    case "under15": return total < 1.5;
-    case "over25": return total > 2.5;
-    case "under25": return total < 2.5;
-    case "over35": return total > 3.5;
-    case "under35": return total < 3.5;
-    case "over45": return total > 4.5;
-    case "under45": return total < 4.5;
-    case "bttsYes": return homeScore > 0 && awayScore > 0;
-    case "bttsNo": return homeScore === 0 || awayScore === 0;
-    case "dc1x": return homeScore >= awayScore;
-    case "dcx2": return awayScore >= homeScore;
-    case "dc12": return homeScore !== awayScore;
-    default: return false;
-  }
-};
 
 export const isPickWon = (pick: SlipItem, match: Match): boolean | null => {
   if (!match.isFinished) return null;
@@ -376,17 +351,31 @@ export function BetProvider({ children }: { children: ReactNode }) {
   }, [matches, userId]);
 
   // ── Slip actions ───────────────────────────────────────────────────
-  // Só uma seleção por partida — selecionar outro mercado da mesma partida
-  // troca o palpite anterior (ver addToSlip). Por isso nada fica "incompatível".
-  const canAddToSlip = () => true;
+  // Permite combinar mercados de grupos diferentes na mesma partida (1 por grupo),
+  // desde que possam vencer juntos. Bloqueia só os contraditórios. A correção do
+  // exploit não está aqui — está na precificação (computeTotalOdds), que usa a
+  // probabilidade real do placar em vez de multiplicar odds correlacionadas.
+  const canAddToSlip = (matchId: string, oddType: OddType) => {
+    const selectedGroup = getMarketGroup(oddType);
+    const otherPicks = betSlip.filter(
+      item => item.matchId === matchId && getMarketGroup(item.oddType) !== selectedGroup
+    );
+    return picksCanCoexist([...otherPicks.map(item => item.oddType), oddType]);
+  };
 
   const addToSlip = (matchId: string, oddType: OddType, oddValue: number) => {
     setBetSlip(prev => {
-      // Só uma seleção por partida: combinar mercados correlacionados da MESMA
-      // partida (ex.: "Menos de 0.5" + "Empate" + "Ambas Não" — todos o mesmo
-      // 0-0) e multiplicar as odds infla o prêmio de graça. Trocamos qualquer
-      // palpite anterior dessa partida pelo novo.
-      const filtered = prev.filter(item => item.matchId !== matchId);
+      const selectedGroup = getMarketGroup(oddType);
+      const otherPicks = prev.filter(
+        item => item.matchId === matchId && getMarketGroup(item.oddType) !== selectedGroup
+      );
+
+      if (!picksCanCoexist([...otherPicks.map(item => item.oddType), oddType])) return prev;
+
+      // Troca apenas o palpite do mesmo grupo e mantém os mercados complementares.
+      const filtered = prev.filter(
+        item => item.matchId !== matchId || getMarketGroup(item.oddType) !== selectedGroup
+      );
       return [...filtered, { matchId, oddType, oddValue }];
     });
   };
@@ -404,8 +393,8 @@ export function BetProvider({ children }: { children: ReactNode }) {
       groups[item.matchId] = [...(groups[item.matchId] || []), item.oddType];
       return groups;
     }, {});
-    if (Object.values(picksByMatch).some(oddTypes => oddTypes.length > 1)) {
-      console.error("O cupom permite apenas uma seleção por partida.");
+    if (Object.values(picksByMatch).some(oddTypes => !picksCanCoexist(oddTypes))) {
+      console.error("O cupom contém mercados incompatíveis na mesma partida.");
       return;
     }
 
@@ -434,7 +423,9 @@ export function BetProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const totalOdds = betSlip.reduce((acc, item) => acc * item.oddValue, 1);
+    // Odd justa: combina por partida via probabilidade real do placar e
+    // multiplica só entre partidas diferentes (ver computeTotalOdds).
+    const totalOdds = computeTotalOdds(betSlip, matches);
     const enrichedPicks = betSlip.map(item => {
       const match = matches.find(m => m.id === item.matchId);
       return {

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useBet } from "../context/BetContext";
 import { Trash2, AlertCircle, ChevronDown, ChevronUp, FileText } from "lucide-react";
 import { OddType } from "../data/matches";
+import { computeTotalOdds } from "../lib/odds";
 import { motion, AnimatePresence } from "framer-motion";
 
 export function BetSlip() {
@@ -37,7 +38,7 @@ export function BetSlip() {
     return match ? (match.isLive || match.isFinished || match.time === "FINALIZADO") : false;
   });
 
-  const totalOdds = betSlip.reduce((acc, item) => acc * item.oddValue, 1);
+  const totalOdds = computeTotalOdds(betSlip, matches);
   const potentialReturn = (Number(betAmount) || 0) * totalOdds;
   const isWcBet = wcJoined && allMatchesWc;
   const activeBalance = isWcBet ? wcBalance : balance;
