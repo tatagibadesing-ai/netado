@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useBet } from "../context/BetContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, XCircle, ChevronLeft, ChevronRight, Award, X } from "lucide-react";
-import { OddType } from "../data/matches";
+import { doesPickMatchScore, getOddLabel } from "../lib/odds";
 
 interface PlacedBet {
   id: string;
@@ -68,56 +68,8 @@ export function ResolvedBetsModal() {
     }
   };
 
-  const getOddLabel = (type: OddType) => {
-    switch (type) {
-      case "home": return "Casa (1)";
-      case "draw": return "Empate (X)";
-      case "away": return "Fora (2)";
-      case "over05": return "Mais de 0.5 Gols";
-      case "under05": return "Menos de 0.5 Gols";
-      case "over15": return "Mais de 1.5 Gols";
-      case "under15": return "Menos de 1.5 Gols";
-      case "over25": return "Mais de 2.5 Gols";
-      case "under25": return "Menos de 2.5 Gols";
-      case "over35": return "Mais de 3.5 Gols";
-      case "under35": return "Menos de 3.5 Gols";
-      case "over45": return "Mais de 4.5 Gols";
-      case "under45": return "Menos de 4.5 Gols";
-      case "bttsYes": return "Ambas Marcam: Sim";
-      case "bttsNo": return "Ambas Marcam: Não";
-      case "dc1x": return "Chance Dupla: 1X";
-      case "dcx2": return "Chance Dupla: X2";
-      case "dc12": return "Chance Dupla: 12";
-      default: return type;
-    }
-  };
-
-  const getPickResult = (pick: any) => {
-    const h = pick.finalHomeScore ?? 0;
-    const a = pick.finalAwayScore ?? 0;
-    const total = h + a;
-    switch (pick.oddType) {
-      case 'home': return h > a;
-      case 'draw': return h === a;
-      case 'away': return h < a;
-      case 'over05': return total > 0.5;
-      case 'under05': return total < 0.5;
-      case 'over15': return total > 1.5;
-      case 'under15': return total < 1.5;
-      case 'over25': return total > 2.5;
-      case 'under25': return total < 2.5;
-      case 'over35': return total > 3.5;
-      case 'under35': return total < 3.5;
-      case 'over45': return total > 4.5;
-      case 'under45': return total < 4.5;
-      case 'bttsYes': return h > 0 && a > 0;
-      case 'bttsNo': return h === 0 || a === 0;
-      case 'dc1x': return h >= a;
-      case 'dcx2': return a >= h;
-      case 'dc12': return h !== a;
-      default: return false;
-    }
-  };
+  const getPickResult = (pick: any) =>
+    doesPickMatchScore(pick.oddType, pick.finalHomeScore ?? 0, pick.finalAwayScore ?? 0);
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/55 p-4 backdrop-blur-[3px]">

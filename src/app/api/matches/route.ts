@@ -131,6 +131,62 @@ function calculateBttsOdds(homeOdd: number, drawOdd: number, awayOdd: number, av
   };
 }
 
+function poissonPmf(lambda: number, k: number): number {
+  let fact = 1;
+  for (let i = 2; i <= k; i++) fact *= i;
+  return (Math.exp(-lambda) * Math.pow(lambda, k)) / fact;
+}
+
+// Mercados que dependem do placar de cada time: placar exato, total par/ímpar
+// e margem de vitória. Derivados da distribuição de Poisson bivariada (lambdas
+// por time) — a MESMA família que o resto da casa usa, então resolvem 100% pelo
+// placar final, sem depender de dado externo.
+function calculateScoreMarkets(lambdaHome: number, lambdaAway: number) {
+  const N = 8; // grade de placares (0..8 gols por time) cobre praticamente toda a massa
+  const ph: number[] = [];
+  const pa: number[] = [];
+  for (let k = 0; k <= N; k++) {
+    ph[k] = poissonPmf(lambdaHome, k);
+    pa[k] = poissonPmf(lambdaAway, k);
+  }
+
+  let pEven = 0, pHome1 = 0, pHome2 = 0, pAway1 = 0, pAway2 = 0, norm = 0;
+  for (let h = 0; h <= N; h++) {
+    for (let a = 0; a <= N; a++) {
+      const p = ph[h] * pa[a];
+      norm += p;
+      if ((h + a) % 2 === 0) pEven += p;
+      const d = h - a;
+      if (d === 1) pHome1 += p;
+      else if (d >= 2) pHome2 += p;
+      else if (d === -1) pAway1 += p;
+      else if (d <= -2) pAway2 += p;
+    }
+  }
+
+  const odd = (prob: number, payout: number): number => {
+    if (prob <= 0) return 100.0;
+    return Number(Math.max(1.01, Math.min(100.0, payout / (prob / norm))).toFixed(2));
+  };
+
+  const markets: Record<string, number> = {
+    goalsEven: odd(pEven, 0.92),
+    goalsOdd: odd(norm - pEven, 0.92),
+    mg_h1: odd(pHome1, 0.90),
+    mg_h2: odd(pHome2, 0.90),
+    mg_a1: odd(pAway1, 0.90),
+    mg_a2: odd(pAway2, 0.90),
+  };
+
+  // Placar exato: oferecemos a grade comum 0-0 .. 3-3 (cobre a esmagadora maioria).
+  for (let h = 0; h <= 3; h++) {
+    for (let a = 0; a <= 3; a++) {
+      markets[`cs_${h}_${a}`] = odd(ph[h] * pa[a], 0.85);
+    }
+  }
+  return markets;
+}
+
 // Constrói o objeto de partida a partir de um evento da ESPN, derivando os
 // mercados adicionais a partir do 1x2 para simular uma casa de apostas real.
 function buildMatchFromEvent(event: any, leagueName: string, now: Date, spNow: Date) {
@@ -191,6 +247,15 @@ function buildMatchFromEvent(event: any, leagueName: string, now: Date, spNow: D
   const oOdds = calculateOverUnderOdds(avgGoals);
   const bttsOdds = calculateBttsOdds(homeOdd, drawOdd, awayOdd, avgGoals);
 
+  // Lambdas por time (gols esperados) para os mercados dependentes de placar.
+  const hProbS = 1 / (homeOdd || 2.0);
+  const aProbS = 1 / (awayOdd || 2.0);
+  const totalProbS = hProbS + aProbS || 1;
+  const scoreMarkets = calculateScoreMarkets(
+    avgGoals * (hProbS / totalProbS),
+    avgGoals * (aProbS / totalProbS),
+  );
+
   const dc1x = Number((1 / ((1 / homeOdd) + (1 / drawOdd))).toFixed(2));
   const dcx2 = Number((1 / ((1 / awayOdd) + (1 / drawOdd))).toFixed(2));
   const dc12 = Number((1 / ((1 / homeOdd) + (1 / awayOdd))).toFixed(2));
@@ -230,6 +295,7 @@ function buildMatchFromEvent(event: any, leagueName: string, now: Date, spNow: D
       dc1x,
       dcx2,
       dc12,
+      ...scoreMarkets,
     },
   };
 }

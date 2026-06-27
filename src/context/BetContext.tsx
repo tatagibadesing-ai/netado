@@ -2,8 +2,12 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Match, OddType, initialMatches } from "../data/matches";
-import { supabase, adjustBalance, adjustWcBalance } from "../lib/supabase";
+import { supabase, adjustBalance, adjustWcBalance, useWcCoringa } from "../lib/supabase";
 import { doesPickMatchScore, getMarketGroup, picksCanCoexist, computeTotalOdds } from "../lib/odds";
+
+// Data de "hoje" no fuso de Brasília (YYYY-MM-DD), pra bater com a coluna
+// wc_coringa_used_on gravada pela RPC use_wc_coringa.
+const todaySaoPaulo = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
 
 export interface SlipItem {
   matchId: string;
@@ -28,6 +32,7 @@ export interface PlacedBet {
   status: "pending" | "won" | "lost" | "cancelled";
   isWcBet?: boolean;
   userNotified?: boolean;
+  coringa?: boolean;
 }
 
 interface BetContextType {
@@ -48,13 +53,14 @@ interface BetContextType {
   canAddToSlip: (matchId: string, oddType: OddType) => boolean;
   removeFromSlip: (matchId: string, oddType: OddType) => void;
   clearSlip: () => void;
-  placeBet: (amount: number) => void;
+  placeBet: (amount: number, useCoringa?: boolean) => void;
   resetAll: () => void;
   refreshMatches: (isInitial?: boolean) => void;
   setSelectedLeague: (league: string | null) => void;
   setActiveTab: (tab: "apostas" | "historico") => void;
   wcJoined: boolean;
   wcBalance: number;
+  wcCoringaAvailable: boolean;
   joinWcCompetition: () => Promise<void>;
   placeWinnerBet: (teamName: string, teamLogo: string, oddValue: number, amount: number) => Promise<boolean>;
   fullName: string | null;
@@ -89,8 +95,12 @@ export function BetProvider({ children }: { children: ReactNode }) {
   // Estados do bolão da copa
   const [wcJoined, setWcJoined] = useState<boolean>(false);
   const [wcBalance, setWcBalance] = useState<number>(1000.0);
+  const [wcCoringaUsedOn, setWcCoringaUsedOn] = useState<string | null>(null);
   const [fullName, setFullNameState] = useState<string | null>(null);
   const [adminNotice, setAdminNotice] = useState<string | null>(null);
+
+  // Coringa disponível: participa do bolão e ainda não usou o coringa de hoje.
+  const wcCoringaAvailable = wcJoined && wcCoringaUsedOn !== todaySaoPaulo();
 
   // ── Auth ───────────────────────────────────────────────────────────
   const login = (uid: string, uname: string, bal: number, wcJoinedVal?: boolean, wcBalanceVal?: number, fName?: string | null) => {
@@ -109,7 +119,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
     if (!isLoggedIn && (wcJoinedVal === undefined || wcBalanceVal === undefined || fName === undefined)) {
       supabase
         .from("netano_profiles")
-        .select("wc_joined, wc_balance, full_name, admin_notice")
+        .select("wc_joined, wc_balance, full_name, admin_notice, wc_coringa_used_on")
         .eq("id", uid)
         .single()
         .then(({ data }) => {
@@ -118,6 +128,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
             if (wcBalanceVal === undefined) setWcBalance(Number(data.wc_balance) ?? 1000.00);
             if (fName === undefined) setFullNameState(data.full_name ?? null);
             setAdminNotice(data.admin_notice ?? null);
+            setWcCoringaUsedOn(data.wc_coringa_used_on ?? null);
           }
         });
     }
@@ -131,6 +142,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
     setBetSlip([]);
     setWcJoined(false);
     setWcBalance(1000.00);
+    setWcCoringaUsedOn(null);
     setFullNameState(null);
     setAdminNotice(null);
     localStorage.removeItem("netano_user");
@@ -186,7 +198,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
     if (saved) {
       try {
         const { uid, uname } = JSON.parse(saved);
-        supabase.from("netano_profiles").select("balance, wc_joined, wc_balance, full_name, admin_notice").eq("id", uid).single().then(({ data }) => {
+        supabase.from("netano_profiles").select("balance, wc_joined, wc_balance, full_name, admin_notice, wc_coringa_used_on").eq("id", uid).single().then(({ data }) => {
           if (data) {
             setUserId(uid);
             setUsername(uname);
@@ -195,6 +207,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
             setWcBalance(Number(data.wc_balance) ?? 1000.00);
             setFullNameState(data.full_name ?? null);
             setAdminNotice(data.admin_notice ?? null);
+            setWcCoringaUsedOn(data.wc_coringa_used_on ?? null);
             setIsLoggedIn(true);
           } else {
             localStorage.removeItem("netano_user");
@@ -238,6 +251,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
             status: b.status,
             isWcBet: b.is_wc_bet,
             userNotified: b.user_notified,
+            coringa: b.coringa,
           }));
           setPlacedBets(mapped);
         }
@@ -386,7 +400,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
   const clearSlip = () => setBetSlip([]);
 
   // ── Place Bet ──────────────────────────────────────────────────────
-  const placeBet = async (amount: number) => {
+  const placeBet = async (amount: number, useCoringa: boolean = false) => {
     if (!userId || amount <= 0 || betSlip.length === 0) return;
 
     const picksByMatch = betSlip.reduce<Record<string, OddType[]>>((groups, item) => {
@@ -437,17 +451,8 @@ export function BetProvider({ children }: { children: ReactNode }) {
       };
     });
 
-    const newBet: PlacedBet = {
-      id: Math.random().toString(36).substring(2, 9),
-      amount,
-      picks: enrichedPicks,
-      totalOdds,
-      potentialReturn: amount * totalOdds,
-      status: "pending",
-      isWcBet,
-      userNotified: false,
-    };
-
+    // Debita o valor primeiro — só depois mexemos no coringa, pra nunca queimar
+    // o coringa numa aposta que falhou no débito.
     if (isWcBet) {
       const nb = await adjustWcBalance(userId, -amount);
       if (nb === null) return;
@@ -457,6 +462,26 @@ export function BetProvider({ children }: { children: ReactNode }) {
       if (nb === null) return;
       setBalance(nb);
     }
+
+    // Coringa: só vale no bolão. Consome de forma atômica; se ESTE cliente
+    // realmente gastou o coringa de hoje, o retorno é pago em dobro.
+    let coringaApplied = false;
+    if (useCoringa && isWcBet && wcCoringaAvailable) {
+      coringaApplied = await useWcCoringa(userId);
+      if (coringaApplied) setWcCoringaUsedOn(todaySaoPaulo());
+    }
+
+    const newBet: PlacedBet = {
+      id: Math.random().toString(36).substring(2, 9),
+      amount,
+      picks: enrichedPicks,
+      totalOdds,
+      potentialReturn: amount * totalOdds * (coringaApplied ? 2 : 1),
+      status: "pending",
+      isWcBet,
+      userNotified: false,
+      coringa: coringaApplied,
+    };
 
     setPlacedBets(prev => [newBet, ...prev]);
     setBetSlip([]);
@@ -471,6 +496,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
       status: newBet.status,
       is_wc_bet: newBet.isWcBet,
       user_notified: false,
+      coringa: newBet.coringa,
     });
   };
 
@@ -568,7 +594,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
         selectedLeague, activeTab,
         addToSlip, canAddToSlip, removeFromSlip, clearSlip, placeBet, resetAll,
         refreshMatches: fetchMatches, setSelectedLeague, setActiveTab,
-        wcJoined, wcBalance, joinWcCompetition, placeWinnerBet,
+        wcJoined, wcBalance, wcCoringaAvailable, joinWcCompetition, placeWinnerBet,
         fullName, setFullName: setFullNameState, markBetsAsNotified,
         adminNotice, dismissAdminNotice
       }}

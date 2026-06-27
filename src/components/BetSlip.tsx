@@ -3,8 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useBet } from "../context/BetContext";
 import { Trash2, AlertCircle, ChevronDown, ChevronUp, FileText } from "lucide-react";
-import { OddType } from "../data/matches";
-import { computeTotalOdds } from "../lib/odds";
+import { computeTotalOdds, getOddLabel } from "../lib/odds";
 import { motion, AnimatePresence } from "framer-motion";
 
 export function BetSlip() {
@@ -16,10 +15,12 @@ export function BetSlip() {
     clearSlip,
     placeBet,
     wcJoined,
-    wcBalance
+    wcBalance,
+    wcCoringaAvailable
   } = useBet();
   const [betAmount, setBetAmount] = useState<number | "">("");
   const [isOpen, setIsOpen] = useState(false);
+  const [useCoringa, setUseCoringa] = useState(false);
 
   // Automatically open the slip when the first item is added
   useEffect(() => {
@@ -39,8 +40,9 @@ export function BetSlip() {
   });
 
   const totalOdds = computeTotalOdds(betSlip, matches);
-  const potentialReturn = (Number(betAmount) || 0) * totalOdds;
   const isWcBet = wcJoined && allMatchesWc;
+  const coringaActive = isWcBet && wcCoringaAvailable && useCoringa;
+  const potentialReturn = (Number(betAmount) || 0) * totalOdds * (coringaActive ? 2 : 1);
   const activeBalance = isWcBet ? wcBalance : balance;
   const isSufficientBalance = (Number(betAmount) || 0) <= activeBalance;
   const isWithinWcLimit = !isWcBet || (Number(betAmount) || 0) <= wcBalance * 0.75;
@@ -48,33 +50,10 @@ export function BetSlip() {
 
   const handlePlaceBet = () => {
     if (isValidBet) {
-      placeBet(Number(betAmount));
+      placeBet(Number(betAmount), coringaActive);
       setBetAmount("");
+      setUseCoringa(false);
       setIsOpen(false);
-    }
-  };
-
-  const getOddLabel = (type: OddType) => {
-    switch (type) {
-      case "home": return "Casa (1)";
-      case "draw": return "Empate (X)";
-      case "away": return "Fora (2)";
-      case "over05": return "Mais de 0.5 Gols";
-      case "under05": return "Menos de 0.5 Gols";
-      case "over15": return "Mais de 1.5 Gols";
-      case "under15": return "Menos de 1.5 Gols";
-      case "over25": return "Mais de 2.5 Gols";
-      case "under25": return "Menos de 2.5 Gols";
-      case "over35": return "Mais de 3.5 Gols";
-      case "under35": return "Menos de 3.5 Gols";
-      case "over45": return "Mais de 4.5 Gols";
-      case "under45": return "Menos de 4.5 Gols";
-      case "bttsYes": return "Ambas Marcam: Sim";
-      case "bttsNo": return "Ambas Marcam: Não";
-      case "dc1x": return "Chance Dupla: 1X";
-      case "dcx2": return "Chance Dupla: X2";
-      case "dc12": return "Chance Dupla: 12";
-      default: return type;
     }
   };
 
@@ -167,13 +146,46 @@ export function BetSlip() {
               </div>
 
               {wcJoined && allMatchesWc && (
-                <div className="bg-[#121212] p-3 rounded-lg flex flex-col gap-1.5">
+                <div className="bg-[#121212] p-3 rounded-lg flex flex-col gap-2">
                   <span className="text-xs font-bold text-white">
                     Aposta do Bolão da Copa (Automática)
                   </span>
                   <p className="text-[10px] text-slate-400 font-medium">
                     Saldo do Bolão: <span className="font-bold text-[#FF3C00]">R$ {wcBalance.toFixed(2)}</span> (Max aposta: R$ {(wcBalance * 0.75).toFixed(2)})
                   </p>
+
+                  {/* Coringa: 1 por dia, dobra os ganhos se a aposta vencer. */}
+                  {wcCoringaAvailable ? (
+                    <button
+                      type="button"
+                      onClick={() => setUseCoringa((v) => !v)}
+                      className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-left transition-colors cursor-pointer border ${
+                        useCoringa
+                          ? "bg-[#FF3C00]/15 border-[#FF3C00]"
+                          : "bg-[#080808] border-white/5 hover:border-white/20"
+                      }`}
+                    >
+                      <span className="flex flex-col">
+                        <span className="text-xs font-bold text-white">🃏 Usar Coringa do dia</span>
+                        <span className="text-[10px] text-slate-400">Ganhos em dobro se vencer</span>
+                      </span>
+                      <span
+                        className={`shrink-0 w-9 h-5 rounded-full p-0.5 transition-colors ${
+                          useCoringa ? "bg-[#FF3C00]" : "bg-white/10"
+                        }`}
+                      >
+                        <span
+                          className={`block w-4 h-4 rounded-full bg-white transition-transform ${
+                            useCoringa ? "translate-x-4" : "translate-x-0"
+                          }`}
+                        />
+                      </span>
+                    </button>
+                  ) : (
+                    <span className="text-[10px] text-slate-500 font-medium">
+                      🃏 Coringa já usado hoje — volta amanhã.
+                    </span>
+                  )}
                 </div>
               )}
 
@@ -200,7 +212,14 @@ export function BetSlip() {
               </div>
 
               <div className="flex justify-between items-center text-sm py-2">
-                <span className="text-slate-400">Retorno Potencial</span>
+                <span className="text-slate-400 flex items-center gap-1.5">
+                  Retorno Potencial
+                  {coringaActive && (
+                    <span className="text-[10px] font-black text-[#FF3C00] bg-[#FF3C00]/15 px-1.5 py-0.5 rounded">
+                      🃏 x2
+                    </span>
+                  )}
+                </span>
                 <span className="font-bold text-[#FF3C00]">
                   R$ {potentialReturn.toFixed(2)}
                 </span>

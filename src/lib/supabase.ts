@@ -74,3 +74,20 @@ export async function adjustWcBalance(userId: string, delta: number): Promise<nu
   }
   return n
 }
+
+// Consome (atomicamente) o coringa do dia do usuário no bolão. Retorna true só
+// se ESTE cliente foi quem realmente gastou o coringa de hoje — evita usar o
+// mesmo coringa em duas abas. Ver migration 017.
+export async function useWcCoringa(userId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('use_wc_coringa', { uid: userId })
+  if (error) {
+    console.error('use_wc_coringa failed', {
+      message: error.message,
+      details: error.details,
+      code: error.code,
+      hint: error.hint,
+    }, { userId })
+    return false
+  }
+  return data === true
+}

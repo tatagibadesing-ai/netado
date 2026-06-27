@@ -216,6 +216,49 @@ export function MatchCard({ match }: { match: Match }) {
               </div>
             </div>
 
+            {/* Margem de Vitória */}
+            {(match.odds.mg_h1 || match.odds.mg_a1) && (
+              <div className="flex flex-col gap-2 pt-2">
+                <span className="text-xs text-slate-500 font-medium">Margem de Vitória</span>
+                <div className="flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    <OddButtonRow type="mg_h1" value={match.odds.mg_h1} label={`${match.homeTeam} por 1`} />
+                    <OddButtonRow type="mg_h2" value={match.odds.mg_h2} label={`${match.homeTeam} por 2+`} />
+                  </div>
+                  <div className="flex gap-2">
+                    <OddButtonRow type="mg_a1" value={match.odds.mg_a1} label={`${match.awayTeam} por 1`} />
+                    <OddButtonRow type="mg_a2" value={match.odds.mg_a2} label={`${match.awayTeam} por 2+`} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Total de Gols Par / Ímpar */}
+            {(match.odds.goalsEven || match.odds.goalsOdd) && (
+              <div className="flex flex-col gap-2 pt-2">
+                <span className="text-xs text-slate-500 font-medium">Total de Gols: Par ou Ímpar</span>
+                <div className="flex gap-2">
+                  <OddButtonRow type="goalsEven" value={match.odds.goalsEven} label="Par" />
+                  <OddButtonRow type="goalsOdd" value={match.odds.goalsOdd} label="Ímpar" />
+                </div>
+              </div>
+            )}
+
+            {/* Placar Exato */}
+            {match.odds.cs_1_0 && (
+              <div className="flex flex-col gap-2 pt-2">
+                <span className="text-xs text-slate-500 font-medium">Placar Exato</span>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {[0, 1, 2, 3].flatMap((h) =>
+                    [0, 1, 2, 3].map((a) => {
+                      const type = `cs_${h}_${a}` as OddType;
+                      return <OddButton key={type} type={type} value={match.odds[`cs_${h}_${a}`]} label={`${h}-${a}`} />;
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+
           </motion.div>
         )}
       </AnimatePresence>

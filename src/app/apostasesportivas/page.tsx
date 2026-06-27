@@ -9,30 +9,7 @@ import { RefreshCcw, CheckCircle2, XCircle, Clock, Trash2 } from "lucide-react";
 import { MyBets } from "@/components/MyBets";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
-
-const getOddLabel = (type: string) => {
-  switch (type) {
-    case "home": return "Casa (1)";
-    case "draw": return "Empate (X)";
-    case "away": return "Fora (2)";
-    case "over05": return "Mais de 0.5 Gols";
-    case "under05": return "Menos de 0.5 Gols";
-    case "over15": return "Mais de 1.5 Gols";
-    case "under15": return "Menos de 1.5 Gols";
-    case "over25": return "Mais de 2.5 Gols";
-    case "under25": return "Menos de 2.5 Gols";
-    case "over35": return "Mais de 3.5 Gols";
-    case "under35": return "Menos de 3.5 Gols";
-    case "over45": return "Mais de 4.5 Gols";
-    case "under45": return "Menos de 4.5 Gols";
-    case "bttsYes": return "Ambas Marcam: Sim";
-    case "bttsNo": return "Ambas Marcam: Não";
-    case "dc1x": return "Chance Dupla: 1X";
-    case "dcx2": return "Chance Dupla: X2";
-    case "dc12": return "Chance Dupla: 12";
-    default: return type;
-  }
-};
+import { getOddLabel, doesPickMatchScore } from "@/lib/odds";
 
 export default function ApostasEsportivas() {
   const {
@@ -43,6 +20,7 @@ export default function ApostasEsportivas() {
     setSelectedLeague,
     wcJoined,
     wcBalance,
+    wcCoringaAvailable,
     joinWcCompetition,
     username,
     placedBets,
@@ -229,6 +207,114 @@ export default function ApostasEsportivas() {
                               <span className="text-base md:text-lg font-bold text-slate-200">R$ {(wcBalance * 0.75).toFixed(2)}</span>
                             </div>
                           </div>
+                        </div>
+                      );
+                    })()}
+
+                    {(() => {
+                      // ── Sequência de acertos (streak) ──────────────────────
+                      // Derivada do histórico resolvido do bolão, ordenado pelo
+                      // momento da resolução. Nada no banco — 100% calculado aqui.
+                      const resolvedWc = placedBets
+                        .filter((b) => b.isWcBet && (b.status === "won" || b.status === "lost"))
+                        .map((b) => ({
+                          status: b.status,
+                          t: Math.max(0, ...b.picks.map((p) => (p.resolvedAt ? new Date(p.resolvedAt).getTime() : 0))),
+                        }))
+                        .sort((a, b) => a.t - b.t);
+
+                      let currentStreak = 0;
+                      for (let i = resolvedWc.length - 1; i >= 0; i--) {
+                        if (resolvedWc[i].status === "won") currentStreak++;
+                        else break;
+                      }
+                      let bestStreak = 0, run = 0;
+                      for (const r of resolvedWc) {
+                        if (r.status === "won") { run++; if (run > bestStreak) bestStreak = run; }
+                        else run = 0;
+                      }
+
+                      // ── Apostas ao vivo agora ─────────────────────────────
+                      const liveBets = placedBets.filter(
+                        (b) => b.isWcBet && b.status === "pending" &&
+                          b.picks.some((p) => matches.find((m) => m.id === p.matchId)?.isLive)
+                      );
+
+                      if (resolvedWc.length === 0 && !wcCoringaAvailable && liveBets.length === 0) return null;
+
+                      return (
+                        <div className="flex flex-col gap-4">
+                          {/* Faixa de stats: streak + coringa */}
+                          <div className="flex flex-wrap items-center gap-2">
+                            {resolvedWc.length > 0 && (
+                              <span className="inline-flex items-center gap-1.5 bg-[#121212] px-3 py-1.5 rounded-lg text-xs font-bold text-white">
+                                🔥 Sequência: <span className="text-[#FF3C00]">{currentStreak}</span>
+                                {bestStreak > 0 && <span className="text-slate-500 font-medium">· recorde {bestStreak}</span>}
+                              </span>
+                            )}
+                            {wcCoringaAvailable && (
+                              <span className="inline-flex items-center gap-1.5 bg-[#FF3C00]/10 border border-[#FF3C00]/30 px-3 py-1.5 rounded-lg text-xs font-bold text-[#FF3C00]">
+                                🃏 Coringa disponível hoje
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Painel "Ao Vivo Agora" */}
+                          {liveBets.length > 0 && (
+                            <div className="bg-[#121212] rounded-2xl p-4 flex flex-col gap-3 border border-red-500/20">
+                              <div className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                                <h4 className="text-sm font-bold text-white">Ao Vivo Agora</h4>
+                                <span className="text-[10px] text-slate-500 font-medium">({liveBets.length} aposta{liveBets.length > 1 ? "s" : ""})</span>
+                              </div>
+                              <div className="flex flex-col gap-2">
+                                {liveBets.map((bet) => {
+                                  // Estado provisório do cupom: perde se algum palpite já fechou errado.
+                                  let anyLost = false, allDecidedWon = true;
+                                  bet.picks.forEach((p) => {
+                                    const m = matches.find((mm) => mm.id === p.matchId);
+                                    if (!m || (!m.isLive && !m.isFinished)) { allDecidedWon = false; return; }
+                                    const won = doesPickMatchScore(p.oddType, m.homeScore ?? 0, m.awayScore ?? 0);
+                                    if (!won) { allDecidedWon = false; if (m.isFinished) anyLost = true; }
+                                  });
+                                  const provisional = anyLost ? "losing" : allDecidedWon ? "winning" : "live";
+                                  return (
+                                    <div key={bet.id} className="bg-[#080808] rounded-lg p-3 flex flex-col gap-2">
+                                      <div className="flex items-center justify-between">
+                                        <span className={`text-[10px] font-black uppercase tracking-wider ${
+                                          provisional === "winning" ? "text-green-500" : provisional === "losing" ? "text-red-500" : "text-amber-500"
+                                        }`}>
+                                          {provisional === "winning" ? "✓ Ganhando" : provisional === "losing" ? "✗ Perdendo" : "Em jogo"}
+                                        </span>
+                                        <span className="text-xs font-bold text-[#FF3C00]">
+                                          Se ganhar: R$ {bet.potentialReturn.toFixed(2)}
+                                          {bet.coringa && <span className="ml-1">🃏</span>}
+                                        </span>
+                                      </div>
+                                      {bet.picks.map((p, i) => {
+                                        const m = matches.find((mm) => mm.id === p.matchId);
+                                        const decided = m && (m.isLive || m.isFinished);
+                                        const won = decided ? doesPickMatchScore(p.oddType, m!.homeScore ?? 0, m!.awayScore ?? 0) : null;
+                                        return (
+                                          <div key={i} className="flex items-center justify-between gap-2 text-[11px]">
+                                            <span className="text-slate-300 truncate">
+                                              {p.homeTeam} {decided ? `${m!.homeScore}-${m!.awayScore}` : "x"} {p.awayTeam}
+                                              <span className="text-slate-500"> · {getOddLabel(p.oddType)}</span>
+                                            </span>
+                                            <span className="shrink-0">
+                                              {won === true ? <span className="text-green-500 font-bold">✓</span>
+                                                : won === false ? <span className="text-red-500 font-bold">✗</span>
+                                                : <span className="text-slate-600">⏳</span>}
+                                            </span>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })()}
@@ -626,6 +712,11 @@ export default function ApostasEsportivas() {
                                               {bet.status === "lost" && <span className="text-red-500">Perdida</span>}
                                               {bet.status === "cancelled" && <span className="text-slate-500">Anulada</span>}
                                             </span>
+                                            {bet.coringa && (
+                                              <span className="text-[10px] font-black text-[#FF3C00] bg-[#FF3C00]/15 px-1.5 py-0.5 rounded normal-case tracking-normal">
+                                                🃏 x2
+                                              </span>
+                                            )}
                                           </div>
                                           <span className="text-xs text-slate-300 font-mono bg-[#080808]/75 px-2 py-1 rounded">
                                             ID: {bet.id}

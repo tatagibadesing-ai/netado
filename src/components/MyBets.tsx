@@ -3,7 +3,7 @@
 import React from "react";
 import { useBet } from "../context/BetContext";
 import { CheckCircle2, XCircle, Clock, CheckCircle, Trash2 } from "lucide-react";
-import { OddType } from "../data/matches";
+import { getOddLabel } from "../lib/odds";
 import { motion, AnimatePresence } from "framer-motion";
 
 export function MyBets() {
@@ -15,30 +15,6 @@ export function MyBets() {
       case "lost": return <XCircle className="w-5 h-5 text-red-500" />;
       case "cancelled": return <Trash2 className="w-5 h-5 text-slate-500" />;
       default: return <Clock className="w-5 h-5 text-amber-500" />;
-    }
-  };
-
-  const getOddLabel = (type: OddType) => {
-    switch (type) {
-      case "home": return "Casa (1)";
-      case "draw": return "Empate (X)";
-      case "away": return "Fora (2)";
-      case "over05": return "Mais de 0.5 Gols";
-      case "under05": return "Menos de 0.5 Gols";
-      case "over15": return "Mais de 1.5 Gols";
-      case "under15": return "Menos de 1.5 Gols";
-      case "over25": return "Mais de 2.5 Gols";
-      case "under25": return "Menos de 2.5 Gols";
-      case "over35": return "Mais de 3.5 Gols";
-      case "under35": return "Menos de 3.5 Gols";
-      case "over45": return "Mais de 4.5 Gols";
-      case "under45": return "Menos de 4.5 Gols";
-      case "bttsYes": return "Ambas Marcam: Sim";
-      case "bttsNo": return "Ambas Marcam: Não";
-      case "dc1x": return "Chance Dupla: 1X";
-      case "dcx2": return "Chance Dupla: X2";
-      case "dc12": return "Chance Dupla: 12";
-      default: return type;
     }
   };
 

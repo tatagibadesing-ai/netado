@@ -4,6 +4,13 @@ import { OddType, Match } from "../data/matches";
 // resolução das apostas quanto na precificação das múltiplas.
 export const doesPickMatchScore = (oddType: OddType, homeScore: number, awayScore: number): boolean => {
   const total = homeScore + awayScore;
+  const diff = homeScore - awayScore;
+
+  // Placar exato ("cs_<casa>_<fora>"): condição paramétrica.
+  if (oddType.startsWith("cs_")) {
+    const [, h, a] = oddType.split("_");
+    return homeScore === Number(h) && awayScore === Number(a);
+  }
 
   switch (oddType) {
     case "home": return homeScore > awayScore;
@@ -24,16 +31,61 @@ export const doesPickMatchScore = (oddType: OddType, homeScore: number, awayScor
     case "dc1x": return homeScore >= awayScore;
     case "dcx2": return awayScore >= homeScore;
     case "dc12": return homeScore !== awayScore;
+    case "goalsEven": return total % 2 === 0;
+    case "goalsOdd": return total % 2 === 1;
+    case "mg_h1": return diff === 1;   // casa vence por 1
+    case "mg_h2": return diff >= 2;    // casa vence por 2+
+    case "mg_a1": return diff === -1;  // fora vence por 1
+    case "mg_a2": return diff <= -2;   // fora vence por 2+
     default: return false;
   }
 };
 
-export type MarketGroup = "result" | "totals" | "btts" | "champion";
+// Rótulo legível de um mercado — fonte única usada por cupom, histórico e modais.
+export const getOddLabel = (type: OddType): string => {
+  if (type.startsWith("cs_")) {
+    const [, h, a] = type.split("_");
+    return `Placar ${h}-${a}`;
+  }
+  switch (type) {
+    case "home": return "Casa (1)";
+    case "draw": return "Empate (X)";
+    case "away": return "Fora (2)";
+    case "over05": return "Mais de 0.5 Gols";
+    case "under05": return "Menos de 0.5 Gols";
+    case "over15": return "Mais de 1.5 Gols";
+    case "under15": return "Menos de 1.5 Gols";
+    case "over25": return "Mais de 2.5 Gols";
+    case "under25": return "Menos de 2.5 Gols";
+    case "over35": return "Mais de 3.5 Gols";
+    case "under35": return "Menos de 3.5 Gols";
+    case "over45": return "Mais de 4.5 Gols";
+    case "under45": return "Menos de 4.5 Gols";
+    case "bttsYes": return "Ambas Marcam: Sim";
+    case "bttsNo": return "Ambas Marcam: Não";
+    case "dc1x": return "Chance Dupla: 1X";
+    case "dcx2": return "Chance Dupla: X2";
+    case "dc12": return "Chance Dupla: 12";
+    case "goalsEven": return "Total de Gols: Par";
+    case "goalsOdd": return "Total de Gols: Ímpar";
+    case "mg_h1": return "Casa vence por 1";
+    case "mg_h2": return "Casa vence por 2+";
+    case "mg_a1": return "Fora vence por 1";
+    case "mg_a2": return "Fora vence por 2+";
+    case "champion": return "Campeão";
+    default: return type;
+  }
+};
+
+export type MarketGroup = "result" | "totals" | "btts" | "correctScore" | "oddeven" | "margin" | "champion";
 
 export const getMarketGroup = (oddType: OddType): MarketGroup => {
   if (["home", "draw", "away", "dc1x", "dcx2", "dc12"].includes(oddType)) return "result";
   if (oddType.startsWith("over") || oddType.startsWith("under")) return "totals";
   if (oddType === "bttsYes" || oddType === "bttsNo") return "btts";
+  if (oddType.startsWith("cs_")) return "correctScore";
+  if (oddType === "goalsEven" || oddType === "goalsOdd") return "oddeven";
+  if (oddType.startsWith("mg_")) return "margin";
   return "champion";
 };
 
@@ -80,19 +132,74 @@ function poisson(lambda: number, k: number): number {
   return (Math.exp(-lambda) * Math.pow(lambda, k)) / fact;
 }
 
-// Constrói a distribuição de placares da partida (Poisson independente por time,
-// com as taxas reconstruídas do 1x2) e devolve uma função que dá a probabilidade
-// de um conjunto de palpites vencer. Retorna null se não der pra modelar.
-function buildScoreModel(match: Match): ((oddTypes: OddType[]) => number) | null {
+// P(casa), P(empate), P(fora) do modelo dados os lambdas.
+function resultProbs(lambdaHome: number, lambdaAway: number): { h: number; d: number; a: number } {
+  const ph: number[] = [];
+  const pa: number[] = [];
+  for (let k = 0; k <= MAX_GOALS; k++) {
+    ph[k] = poisson(lambdaHome, k);
+    pa[k] = poisson(lambdaAway, k);
+  }
+  let h = 0, d = 0, a = 0, norm = 0;
+  for (let i = 0; i <= MAX_GOALS; i++) {
+    for (let j = 0; j <= MAX_GOALS; j++) {
+      const p = ph[i] * pa[j];
+      norm += p;
+      if (i > j) h += p; else if (i === j) d += p; else a += p;
+    }
+  }
+  return { h: h / norm, d: d / norm, a: a / norm };
+}
+
+// Calibra lambdaHome/lambdaAway para P(casa) e P(fora) do modelo baterem com o
+// 1x2 exibido (sem a margem). Sem isso, o modelo coloca a vitória da zebra quase
+// toda num placar só (ex.: 0-1) e EXAGERA a correlação com mercados de gols,
+// descontando combos legítimos demais (ex.: "Menos de 1.5" + "Fora").
+function calibrateLambdas(home: number, draw: number, away: number): { lambdaHome: number; lambdaAway: number } {
+  let pH = 1 / home;
+  const pD = 1 / draw;
+  let pA = 1 / away;
+  const s = pH + pD + pA;
+  pH /= s; pA /= s; // remove a margem da casa
+
+  const avgGoals = reconstructAvgGoals(home, draw, away);
+  const hp = 1 / home, ap = 1 / away, tp = hp + ap || 1;
+  let lambdaHome = avgGoals * (hp / tp);
+  let lambdaAway = avgGoals * (ap / tp);
+
+  // Coordinate descent: alterna bisseção em cada lambda até casar 1 e 2.
+  for (let iter = 0; iter < 24; iter++) {
+    let lo = 0.01, hi = 12;
+    for (let i = 0; i < 32; i++) {
+      const mid = (lo + hi) / 2;
+      if (resultProbs(mid, lambdaAway).h < pH) lo = mid; else hi = mid;
+    }
+    lambdaHome = (lo + hi) / 2;
+
+    lo = 0.01; hi = 12;
+    for (let i = 0; i < 32; i++) {
+      const mid = (lo + hi) / 2;
+      if (resultProbs(lambdaHome, mid).a < pA) lo = mid; else hi = mid;
+    }
+    lambdaAway = (lo + hi) / 2;
+  }
+  return { lambdaHome, lambdaAway };
+}
+
+type ProbFn = (oddTypes: OddType[]) => number;
+const modelCache = new Map<string, ProbFn | null>();
+
+// Constrói (e cacheia) a distribuição de placares CALIBRADA da partida e devolve
+// uma função que dá a probabilidade de um conjunto de palpites vencer junto.
+function buildScoreModel(match: Match): ProbFn | null {
   const { home, draw, away } = match.odds;
   if (!home || !away) return null;
 
-  const avgGoals = reconstructAvgGoals(home, draw, away);
-  const hProb = 1 / home;
-  const aProb = 1 / away;
-  const totalProb = hProb + aProb || 1;
-  const lambdaHome = avgGoals * (hProb / totalProb);
-  const lambdaAway = avgGoals * (aProb / totalProb);
+  const key = `${home}|${draw}|${away}`;
+  const cached = modelCache.get(key);
+  if (cached !== undefined) return cached;
+
+  const { lambdaHome, lambdaAway } = calibrateLambdas(home, draw, away);
 
   const ph: number[] = [];
   const pa: number[] = [];
@@ -110,15 +217,19 @@ function buildScoreModel(match: Match): ((oddTypes: OddType[]) => number) | null
       grid.push([h, a, p]);
     }
   }
-  if (norm <= 0) return null;
+  if (norm <= 0) { modelCache.set(key, null); return null; }
 
-  return (oddTypes: OddType[]) => {
+  if (modelCache.size > 200) modelCache.clear(); // evita crescer sem limite
+
+  const fn: ProbFn = (oddTypes) => {
     let s = 0;
     for (const [h, a, p] of grid) {
       if (oddTypes.every(t => doesPickMatchScore(t, h, a))) s += p;
     }
     return s / norm; // renormaliza pela massa truncada do grid
   };
+  modelCache.set(key, fn);
+  return fn;
 }
 
 export interface SlipPick {
