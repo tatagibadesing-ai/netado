@@ -7,6 +7,13 @@ function americanToDecimal(americanStr: string | number | undefined): number {
   if (!americanStr) return 0;
   let val = typeof americanStr === 'string' ? parseFloat(americanStr.replace("+", "")) : americanStr;
   if (isNaN(val)) return 0;
+  
+  // Se o valor absoluto for menor que 100, já está no formato decimal.
+  // Retorna diretamente para evitar a divisão incorreta por 100.
+  if (Math.abs(val) < 100) {
+    return Number(val.toFixed(2));
+  }
+  
   if (val > 0) {
     return (val / 100) + 1;
   } else if (val < 0) {
@@ -256,9 +263,10 @@ function buildMatchFromEvent(event: any, leagueName: string, now: Date, spNow: D
     avgGoals * (aProbS / totalProbS),
   );
 
-  const dc1x = Number((1 / ((1 / homeOdd) + (1 / drawOdd))).toFixed(2));
-  const dcx2 = Number((1 / ((1 / awayOdd) + (1 / drawOdd))).toFixed(2));
-  const dc12 = Number((1 / ((1 / homeOdd) + (1 / awayOdd))).toFixed(2));
+  const dcPayout = 0.90; // Margem padrão de 10%
+  const dc1x = Number((dcPayout / ((1 / homeOdd) + (1 / drawOdd))).toFixed(2));
+  const dcx2 = Number((dcPayout / ((1 / awayOdd) + (1 / drawOdd))).toFixed(2));
+  const dc12 = Number((dcPayout / ((1 / homeOdd) + (1 / awayOdd))).toFixed(2));
 
   const homeScore = parseInt(homeComp.score || "0");
   const awayScore = parseInt(awayComp.score || "0");
@@ -275,6 +283,8 @@ function buildMatchFromEvent(event: any, leagueName: string, now: Date, spNow: D
     isLive,
     homeScore,
     awayScore,
+    homeWinner: !!homeComp.winner,
+    awayWinner: !!awayComp.winner,
     _date: matchDate.getTime(),
     odds: {
       home: homeOdd,

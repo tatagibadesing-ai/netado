@@ -28,6 +28,8 @@ export interface Match {
   isCoringaGame?: boolean; // "Jogo do Coringa" do dia (único onde o coringa vale)
   homeScore?: number;
   awayScore?: number;
+  homeWinner?: boolean;
+  awayWinner?: boolean;
   odds: {
     home: number;
     draw: number;

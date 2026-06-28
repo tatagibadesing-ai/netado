@@ -331,6 +331,38 @@ export function BetProvider({ children }: { children: ReactNode }) {
       let hasLostPick = false;
 
       for (const pick of bet.picks) {
+        if (pick.matchId === "copa_winner") {
+          const finalMatch = matches.find(m => m.id === "760517");
+          if (!finalMatch || !finalMatch.isFinished) {
+            isPending = true;
+            continue;
+          }
+          let champion: string | null = null;
+          if (finalMatch.homeWinner) {
+            champion = finalMatch.homeTeam;
+          } else if (finalMatch.awayWinner) {
+            champion = finalMatch.awayTeam;
+          } else if (finalMatch.homeScore !== undefined && finalMatch.awayScore !== undefined) {
+            if (finalMatch.homeScore > finalMatch.awayScore) {
+              champion = finalMatch.homeTeam;
+            } else if (finalMatch.awayScore > finalMatch.homeScore) {
+              champion = finalMatch.awayTeam;
+            }
+          }
+
+          if (!champion) {
+            isPending = true;
+            continue;
+          }
+
+          const won = !!pick.homeTeam && pick.homeTeam.toLowerCase() === champion.toLowerCase();
+          if (!won) {
+            hasLostPick = true;
+            break;
+          }
+          continue;
+        }
+
         const match = matches.find(m => m.id === pick.matchId);
         if (!match) {
           if (pick.finalHomeScore !== undefined && pick.finalAwayScore !== undefined) {
@@ -350,6 +382,15 @@ export function BetProvider({ children }: { children: ReactNode }) {
 
       if (hasLostPick) {
         const snapshotPicks = bet.picks.map(p => {
+          if (p.matchId === "copa_winner") {
+            const finalMatch = matches.find(mm => mm.id === "760517");
+            return {
+              ...p,
+              finalHomeScore: finalMatch?.homeScore ?? 0,
+              finalAwayScore: finalMatch?.awayScore ?? 0,
+              resolvedAt: new Date().toISOString(),
+            };
+          }
           const m = matches.find(mm => mm.id === p.matchId);
           return m && m.isFinished ? enrichPickWithScore(p, m) : p;
         });
@@ -359,6 +400,15 @@ export function BetProvider({ children }: { children: ReactNode }) {
       }
       if (!isPending) {
         const snapshotPicks = bet.picks.map(p => {
+          if (p.matchId === "copa_winner") {
+            const finalMatch = matches.find(mm => mm.id === "760517");
+            return {
+              ...p,
+              finalHomeScore: finalMatch?.homeScore ?? 0,
+              finalAwayScore: finalMatch?.awayScore ?? 0,
+              resolvedAt: new Date().toISOString(),
+            };
+          }
           const m = matches.find(mm => mm.id === p.matchId);
           return m && m.isFinished ? enrichPickWithScore(p, m) : p;
         });
@@ -404,26 +454,14 @@ export function BetProvider({ children }: { children: ReactNode }) {
   // exploit não está aqui — está na precificação (computeTotalOdds), que usa a
   // probabilidade real do placar em vez de multiplicar odds correlacionadas.
   const canAddToSlip = (matchId: string, oddType: OddType) => {
-    const selectedGroup = getMarketGroup(oddType);
-    const otherPicks = betSlip.filter(
-      item => item.matchId === matchId && getMarketGroup(item.oddType) !== selectedGroup
-    );
-    return picksCanCoexist([...otherPicks.map(item => item.oddType), oddType]);
+    // Como a nova seleção substituirá a antiga da mesma partida, a ação é sempre válida.
+    return true;
   };
 
   const addToSlip = (matchId: string, oddType: OddType, oddValue: number) => {
     setBetSlip(prev => {
-      const selectedGroup = getMarketGroup(oddType);
-      const otherPicks = prev.filter(
-        item => item.matchId === matchId && getMarketGroup(item.oddType) !== selectedGroup
-      );
-
-      if (!picksCanCoexist([...otherPicks.map(item => item.oddType), oddType])) return prev;
-
-      // Troca apenas o palpite do mesmo grupo e mantém os mercados complementares.
-      const filtered = prev.filter(
-        item => item.matchId !== matchId || getMarketGroup(item.oddType) !== selectedGroup
-      );
+      // Remove qualquer palpite anterior desta mesma partida (permite apenas uma seleção por jogo no cupom).
+      const filtered = prev.filter(item => item.matchId !== matchId);
       return [...filtered, { matchId, oddType, oddValue }];
     });
   };
@@ -548,7 +586,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
   const placeWinnerBet = async (teamName: string, teamLogo: string, oddValue: number, amount: number): Promise<boolean> => {
     if (!userId || amount <= 0) return false;
 
-    const winnerDeadline = new Date("2026-06-22T23:59:59-04:00");
+    const winnerDeadline = new Date("2026-07-15T23:59:59-04:00");
     if (new Date() >= winnerDeadline) {
       console.error("Palpites para campeão da Copa estão encerrados.");
       return false;

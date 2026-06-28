@@ -11,6 +11,160 @@ import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { getOddLabel, doesPickMatchScore } from "@/lib/odds";
 
+const TEAM_ODDS_MAP: Record<string, number> = {
+  "Argentina": 4.50,
+  "France": 5.00,
+  "França": 5.00,
+  "Spain": 5.50,
+  "Espanha": 5.50,
+  "England": 6.00,
+  "Inglaterra": 6.00,
+  "Portugal": 7.50,
+  "Germany": 9.00,
+  "Alemanha": 9.00,
+  "Netherlands": 11.00,
+  "Holanda": 11.00,
+  "Italy": 13.00,
+  "Itália": 13.00,
+  "Belgium": 15.00,
+  "Bélgica": 15.00,
+  "Uruguay": 18.00,
+  "Uruguai": 18.00,
+  "Croatia": 20.00,
+  "Croácia": 20.00,
+  "Colombia": 22.00,
+  "Colômbia": 22.00,
+  "Morocco": 25.00,
+  "Marrocos": 25.00,
+  "USA": 30.00,
+  "EUA": 30.00,
+  "Mexico": 35.00,
+  "México": 35.00,
+  "Japan": 40.00,
+  "Japão": 40.00,
+  "Switzerland": 45.00,
+  "Suíça": 45.00,
+  "Denmark": 50.00,
+  "Dinamarca": 50.00,
+  "Senegal": 50.00,
+  "Sweden": 60.00,
+  "Suécia": 60.00,
+  "Austria": 70.00,
+  "Áustria": 70.00,
+  "Norway": 80.00,
+  "Noruega": 80.00,
+  "South Korea": 80.00,
+  "Coreia do Sul": 80.00,
+  "Türkiye": 90.00,
+  "Turquia": 90.00,
+  "Ukraine": 100.00,
+  "Ucrânia": 100.00,
+  "Ecuador": 100.00,
+  "Equador": 100.00,
+  "Ivory Coast": 100.00,
+  "Costa do Marfim": 100.00,
+  "Tunisia": 120.00,
+  "Tunísia": 120.00,
+  "Algeria": 120.00,
+  "Argélia": 120.00,
+  "Australia": 120.00,
+  "Austrália": 120.00,
+  "Czechia": 150.00,
+  "Tchéquia": 150.00,
+  "South Africa": 150.00,
+  "África do Sul": 150.00,
+  "Egypt": 150.00,
+  "Egito": 150.00,
+  "Paraguay": 150.00,
+  "Paraguai": 150.00,
+  "Saudi Arabia": 200.00,
+  "Arábia Saudita": 200.00,
+  "Bosnia-Herz": 200.00,
+  "Bósnia e Herzegovina": 200.00,
+  "Canada": 200.00,
+  "Canadá": 200.00,
+  "Qatar": 250.00,
+  "Catar": 250.00,
+  "Congo DR": 250.00,
+  "RD Congo": 250.00,
+  "Curaçao": 300.00,
+  "Haiti": 300.00,
+  "Iran": 300.00,
+  "Irã": 300.00,
+  "Iraq": 300.00,
+  "Iraque": 300.00,
+  "Jordan": 300.00,
+  "Jordânia": 300.00,
+  "New Zealand": 300.00,
+  "Nova Zelândia": 300.00,
+  "Panama": 300.00,
+  "Panamá": 300.00,
+  "Scotland": 300.00,
+  "Escócia": 300.00,
+  "Uzbekistan": 300.00,
+  "Uzbequistão": 300.00,
+};
+
+const translations: Record<string, string> = {
+  "Brazil": "Brasil",
+  "Argentina": "Argentina",
+  "Spain": "Espanha",
+  "France": "França",
+  "England": "Inglaterra",
+  "Portugal": "Portugal",
+  "Germany": "Alemanha",
+  "Netherlands": "Holanda",
+  "Italy": "Itália",
+  "Uruguay": "Uruguai",
+  "Croatia": "Croácia",
+  "Belgium": "Bélgica",
+  "Colombia": "Colômbia",
+  "Morocco": "Marrocos",
+  "USA": "EUA",
+  "Mexico": "México",
+  "Japan": "Japão",
+  "Switzerland": "Suíça",
+  "Denmark": "Dinamarca",
+  "Senegal": "Senegal",
+  "Sweden": "Suécia",
+  "South Korea": "Coreia do Sul",
+  "Ecuador": "Equador",
+  "Algeria": "Argélia",
+  "Canada": "Canadá",
+  "Australia": "Austrália",
+  "Iran": "Irã",
+  "Turkey": "Turquia",
+  "Türkiye": "Turquia",
+  "Qatar": "Catar",
+  "Saudi Arabia": "Arábia Saudita",
+  "Egypt": "Egito",
+  "Poland": "Polônia",
+  "Czechia": "Tchéquia",
+  "South Africa": "África do Sul",
+  "Paraguay": "Paraguai",
+  "Iraq": "Iraque",
+  "Jordan": "Jordânia",
+  "New Zealand": "Nova Zelândia",
+  "Panama": "Panamá",
+  "Scotland": "Escócia",
+  "Uzbekistan": "Uzbequistão",
+  "Congo DR": "RD Congo",
+  "Bosnia-Herz": "Bósnia e Herzegovina",
+  "Ghana": "Gana",
+  "Cape Verde": "Cabo Verde",
+  "Ivory Coast": "Costa do Marfim",
+  "Tunisia": "Tunísia",
+  "Curaçao": "Curaçao",
+  "Haiti": "Haiti",
+  "Austria": "Áustria",
+  "Norway": "Noruega",
+};
+
+const translateTeamName = (name: string | undefined): string => {
+  if (!name) return "";
+  return translations[name] || name;
+};
+
 export default function ApostasEsportivas() {
   const {
     matches,
@@ -32,7 +186,7 @@ export default function ApostasEsportivas() {
   const [ranking, setRanking] = useState<{ username: string; wc_balance: number }[]>([]);
   const [isLoadingRanking, setIsLoadingRanking] = useState(false);
   const [wcTab, setWcTab] = useState<"jogos" | "campeao" | "ranking" | "historico">("jogos");
-  const [selectedWinnerTeam, setSelectedWinnerTeam] = useState<{ name: string; logo: string; odd: number } | null>(null);
+  const [selectedWinnerTeam, setSelectedWinnerTeam] = useState<{ name: string; displayName: string; logo: string; odd: number } | null>(null);
   const [winnerBetAmount, setWinnerBetAmount] = useState<number | "">("");
 
   // Extract unique leagues for mobile dropdown
@@ -127,7 +281,7 @@ export default function ApostasEsportivas() {
                         <div className="inline-flex flex-wrap items-center justify-center gap-x-2 gap-y-1 bg-[#121212]/70 rounded-xl px-4 py-2 mt-1">
                           <span className="text-xs md:text-sm font-bold text-white">O pódio ganha dinheiro!</span>
                           <span className="text-xs md:text-sm text-slate-200">
-                            1º <span className="text-[#FFD700] font-bold">6,7%</span> · 2º <span className="font-bold">2%</span> · 3º <span className="text-[#CD7F32] font-bold">1%</span> do próprio saldo
+                            1º <span className="text-[#FFD700] font-bold">4,2%</span> · 2º <span className="font-bold">1,67%</span> · 3º <span className="text-[#CD7F32] font-bold">0,67%</span> do próprio saldo
                           </span>
                         </div>
                       </div>
@@ -385,34 +539,72 @@ export default function ApostasEsportivas() {
                         /* Tab Campeão da Copa */
                         <div className="flex flex-col gap-6">
                           {(() => {
-                            const winnerDeadline = new Date("2026-06-22T23:59:59-04:00");
-                            const now = new Date();
-                            const timeDiff = winnerDeadline.getTime() - now.getTime();
-                            const daysDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
-                            const isWinnerBetClosed = daysDiff <= 0;
+                             const winnerDeadline = new Date("2026-07-15T23:59:59-04:00");
+                             const now = new Date();
+                             const timeDiff = winnerDeadline.getTime() - now.getTime();
+                             const daysDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+                             const isWinnerBetClosed = daysDiff <= 0;
 
-                            const winnerOptions = [
-                              { name: "Argentina", logo: "https://a.espncdn.com/i/teamlogos/countries/500/arg.png", odd: 4.00 },
-                              { name: "Espanha", logo: "https://a.espncdn.com/i/teamlogos/countries/500/esp.png", odd: 4.50 },
-                              { name: "França", logo: "https://a.espncdn.com/i/teamlogos/countries/500/fra.png", odd: 5.00 },
-                              { name: "Inglaterra", logo: "https://a.espncdn.com/i/teamlogos/countries/500/eng.png", odd: 5.50 },
-                              { name: "Portugal", logo: "https://a.espncdn.com/i/teamlogos/countries/500/por.png", odd: 6.00 },
-                              { name: "Brasil", logo: "https://a.espncdn.com/i/teamlogos/countries/500/bra.png", odd: 6.50 },
-                              { name: "Marrocos", logo: "https://a.espncdn.com/i/teamlogos/countries/500/mar.png", odd: 7.50 },
-                              { name: "Holanda", logo: "https://a.espncdn.com/i/teamlogos/countries/500/ned.png", odd: 8.50 },
-                              { name: "Bélgica", logo: "https://a.espncdn.com/i/teamlogos/countries/500/bel.png", odd: 10.00 },
-                              { name: "Alemanha", logo: "https://a.espncdn.com/i/teamlogos/countries/500/ger.png", odd: 12.00 },
-                              { name: "Croácia", logo: "https://a.espncdn.com/i/teamlogos/countries/500/cro.png", odd: 15.00 },
-                              { name: "Itália", logo: "https://a.espncdn.com/i/teamlogos/countries/500/ita.png", odd: 18.00 },
-                              { name: "Colômbia", logo: "https://a.espncdn.com/i/teamlogos/countries/500/col.png", odd: 22.00 },
-                              { name: "México", logo: "https://a.espncdn.com/i/teamlogos/countries/500/mex.png", odd: 26.00 },
-                              { name: "Senegal", logo: "https://a.espncdn.com/i/teamlogos/countries/500/sen.png", odd: 30.00 },
-                              { name: "Uruguai", logo: "https://a.espncdn.com/i/teamlogos/countries/500/uru.png", odd: 35.00 },
-                              { name: "EUA", logo: "https://a.espncdn.com/i/teamlogos/countries/500/usa.png", odd: 40.00 },
-                              { name: "Japão", logo: "https://a.espncdn.com/i/teamlogos/countries/500/jpn.png", odd: 50.00 },
-                              { name: "Suíça", logo: "https://a.espncdn.com/i/teamlogos/countries/500/sui.png", odd: 60.00 },
-                              { name: "Irã", logo: "https://a.espncdn.com/i/teamlogos/countries/500/irn.png", odd: 100.00 },
-                            ];
+                             const r32MatchIds = new Set(Array.from({ length: 16 }, (_, i) => String(760486 + i)));
+                             const r32Matches = matches.filter(m => m.league?.toLowerCase() === "copa do mundo" && r32MatchIds.has(m.id));
+
+                             const teamsMap = new Map<string, string>();
+                             r32Matches.forEach(m => {
+                               if (m.homeTeam && !m.homeTeam.match(/^\d|[WL]\d|Venc|Perd|3RD/i)) {
+                                 teamsMap.set(m.homeTeam, m.homeLogo || "");
+                               }
+                               if (m.awayTeam && !m.awayTeam.match(/^\d|[WL]\d|Venc|Perd|3RD/i)) {
+                                 teamsMap.set(m.awayTeam, m.awayLogo || "");
+                               }
+                             });
+
+                             let winnerOptions: { name: string; displayName: string; logo: string; odd: number }[] = [];
+
+                             if (teamsMap.size > 0) {
+                               winnerOptions = Array.from(teamsMap.entries()).map(([name, logo]) => {
+                                 const displayName = translateTeamName(name);
+                                 const odd = TEAM_ODDS_MAP[name] || TEAM_ODDS_MAP[displayName] || 50.0;
+                                 return { name, displayName, logo, odd };
+                               });
+                             } else {
+                               const fallbackTeams = [
+                                 { name: "Brazil", displayName: "Brasil", logo: "https://a.espncdn.com/i/teamlogos/countries/500/bra.png", odd: 5.50 },
+                                 { name: "Argentina", displayName: "Argentina", logo: "https://a.espncdn.com/i/teamlogos/countries/500/arg.png", odd: 6.00 },
+                                 { name: "France", displayName: "França", logo: "https://a.espncdn.com/i/teamlogos/countries/500/fra.png", odd: 6.50 },
+                                 { name: "Spain", displayName: "Espanha", logo: "https://a.espncdn.com/i/teamlogos/countries/500/esp.png", odd: 7.00 },
+                                 { name: "England", displayName: "Inglaterra", logo: "https://a.espncdn.com/i/teamlogos/countries/500/eng.png", odd: 8.00 },
+                                 { name: "Portugal", displayName: "Portugal", logo: "https://a.espncdn.com/i/teamlogos/countries/500/por.png", odd: 9.00 },
+                                 { name: "Germany", displayName: "Alemanha", logo: "https://a.espncdn.com/i/teamlogos/countries/500/ger.png", odd: 11.00 },
+                                 { name: "Netherlands", displayName: "Holanda", logo: "https://a.espncdn.com/i/teamlogos/countries/500/ned.png", odd: 13.00 },
+                                 { name: "Italy", displayName: "Itália", logo: "https://a.espncdn.com/i/teamlogos/countries/500/ita.png", odd: 15.00 },
+                                 { name: "Uruguay", displayName: "Uruguai", logo: "https://a.espncdn.com/i/teamlogos/countries/500/uru.png", odd: 18.00 },
+                                 { name: "Croatia", displayName: "Croácia", logo: "https://a.espncdn.com/i/teamlogos/countries/500/cro.png", odd: 20.00 },
+                                 { name: "Belgium", displayName: "Bélgica", logo: "https://a.espncdn.com/i/teamlogos/countries/500/bel.png", odd: 22.00 },
+                                 { name: "Colombia", displayName: "Colômbia", logo: "https://a.espncdn.com/i/teamlogos/countries/500/col.png", odd: 25.00 },
+                                 { name: "Morocco", displayName: "Marrocos", logo: "https://a.espncdn.com/i/teamlogos/countries/500/mar.png", odd: 28.00 },
+                                 { name: "USA", displayName: "EUA", logo: "https://a.espncdn.com/i/teamlogos/countries/500/usa.png", odd: 35.00 },
+                                 { name: "Mexico", displayName: "México", logo: "https://a.espncdn.com/i/teamlogos/countries/500/mex.png", odd: 40.00 },
+                                 { name: "Japan", displayName: "Japão", logo: "https://a.espncdn.com/i/teamlogos/countries/500/jpn.png", odd: 50.00 },
+                                 { name: "Switzerland", displayName: "Suíça", logo: "https://a.espncdn.com/i/teamlogos/countries/500/sui.png", odd: 60.00 },
+                                 { name: "Denmark", displayName: "Dinamarca", logo: "https://a.espncdn.com/i/teamlogos/countries/500/den.png", odd: 60.00 },
+                                 { name: "Senegal", displayName: "Senegal", logo: "https://a.espncdn.com/i/teamlogos/countries/500/sen.png", odd: 60.00 },
+                                 { name: "Sweden", displayName: "Suécia", logo: "https://a.espncdn.com/i/teamlogos/countries/500/swe.png", odd: 80.00 },
+                                 { name: "South Korea", displayName: "Coreia do Sul", logo: "https://a.espncdn.com/i/teamlogos/countries/500/kors.png", odd: 80.00 },
+                                 { name: "Ecuador", displayName: "Equador", logo: "https://a.espncdn.com/i/teamlogos/countries/500/ecu.png", odd: 100.00 },
+                                 { name: "Serbia", displayName: "Sérvia", logo: "https://a.espncdn.com/i/teamlogos/countries/500/srb.png", odd: 100.00 },
+                                 { name: "Cameroon", displayName: "Camarões", logo: "https://a.espncdn.com/i/teamlogos/countries/500/cmr.png", odd: 120.00 },
+                                 { name: "Algeria", displayName: "Argélia", logo: "https://a.espncdn.com/i/teamlogos/countries/500/alg.png", odd: 150.00 },
+                                 { name: "Canada", displayName: "Canadá", logo: "https://a.espncdn.com/i/teamlogos/countries/500/can.png", odd: 150.00 },
+                                 { name: "Australia", displayName: "Austrália", logo: "https://a.espncdn.com/i/teamlogos/countries/500/aus.png", odd: 150.00 },
+                                 { name: "Poland", displayName: "Polônia", logo: "https://a.espncdn.com/i/teamlogos/countries/500/pol.png", odd: 150.00 },
+                                 { name: "Iran", displayName: "Irã", logo: "https://a.espncdn.com/i/teamlogos/countries/500/irn.png", odd: 200.00 },
+                                 { name: "Türkiye", displayName: "Turquia", logo: "https://a.espncdn.com/i/teamlogos/countries/500/tur.png", odd: 200.00 },
+                                 { name: "Qatar", displayName: "Catar", logo: "https://a.espncdn.com/i/teamlogos/countries/500/qat.png", odd: 250.00 },
+                               ];
+                               winnerOptions = fallbackTeams;
+                             }
+
+                             winnerOptions.sort((a, b) => a.odd - b.odd);
 
                             const existingWinnerBets = placedBets.filter(b => b.picks.some(p => p.matchId === "copa_winner"));
 
@@ -461,7 +653,7 @@ export default function ApostasEsportivas() {
                                           <div key={bet.id} className="bg-[#121212]/80 p-3 rounded-lg flex items-center justify-between text-xs shadow-md">
                                             <div className="flex items-center gap-2">
                                               {pick.homeLogo && <img src={pick.homeLogo} alt="" className="w-5 h-5 object-contain" />}
-                                              <span className="font-semibold text-white">{pick.homeTeam}</span>
+                                              <span className="font-semibold text-white">{translateTeamName(pick.homeTeam)}</span>
                                             </div>
                                             <div className="text-right">
                                               <div className="font-bold text-slate-200">R$ {bet.amount.toFixed(2)} @ {bet.totalOdds.toFixed(2)}</div>
@@ -501,7 +693,7 @@ export default function ApostasEsportivas() {
                                         <div className="relative z-10 flex flex-col items-center gap-4 w-full">
                                           <div className="flex flex-col items-center gap-2">
                                             <img src={option.logo} alt="" className="w-12 h-12 object-contain" />
-                                            <span className="text-xs font-semibold text-slate-100 text-center truncate w-full">{option.name}</span>
+                                            <span className="text-xs font-semibold text-slate-100 text-center truncate w-full">{option.displayName || option.name}</span>
                                           </div>
                                           <button
                                             disabled={isWinnerBetClosed}
@@ -530,7 +722,7 @@ export default function ApostasEsportivas() {
                       ) : wcTab === "ranking" ? (
                         (() => {
                           // Premiação final do bolão: % do próprio saldo para o top 3.
-                          const PRIZE_PCTS = [0.067, 0.02, 0.01];
+                          const PRIZE_PCTS = [0.042, 0.0167, 0.0067];
                           const MEDALS = ["🥇", "🥈", "🥉"];
                           const prizeFor = (idx: number, bal: number) => (idx >= 0 && idx < 3 ? bal * PRIZE_PCTS[idx] : 0);
 
@@ -546,9 +738,9 @@ export default function ApostasEsportivas() {
                               {/* Premiação — linha discreta */}
                               <p className="text-xs text-slate-400 px-1">
                                 Premiação final p/ o top 3:{" "}
-                                <span className="text-[#FFD700] font-bold">6,7%</span> ·{" "}
-                                <span className="text-slate-200 font-bold">2%</span> ·{" "}
-                                <span className="text-[#CD7F32] font-bold">1%</span> do próprio saldo.
+                                <span className="text-[#FFD700] font-bold">4,2%</span> ·{" "}
+                                <span className="text-slate-200 font-bold">1,67%</span> ·{" "}
+                                <span className="text-[#CD7F32] font-bold">0,67%</span> do próprio saldo.
                               </p>
 
                               {/* Sua posição — linha discreta */}
@@ -875,7 +1067,7 @@ export default function ApostasEsportivas() {
                 <img src={selectedWinnerTeam.logo} alt="" className="w-10 h-10 object-contain" />
                 <div>
                   <h4 className="font-bold text-white text-base leading-tight font-sans">
-                    {selectedWinnerTeam.name} Campeão
+                    {selectedWinnerTeam.displayName || selectedWinnerTeam.name} Campeão
                   </h4>
                   <span className="text-xs text-slate-400">Odd de Cotação: <span className="font-bold text-[#FF3C00]">{selectedWinnerTeam.odd.toFixed(2)}</span></span>
                 </div>
