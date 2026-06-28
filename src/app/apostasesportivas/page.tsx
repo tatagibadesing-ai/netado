@@ -12,6 +12,8 @@ import { supabase } from "@/lib/supabase";
 import { getOddLabel, doesPickMatchScore } from "@/lib/odds";
 
 const TEAM_ODDS_MAP: Record<string, number> = {
+  "Brazil": 5.00,
+  "Brasil": 5.00,
   "Argentina": 4.50,
   "France": 5.00,
   "França": 5.00,
