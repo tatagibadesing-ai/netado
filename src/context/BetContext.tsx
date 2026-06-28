@@ -454,14 +454,26 @@ export function BetProvider({ children }: { children: ReactNode }) {
   // exploit não está aqui — está na precificação (computeTotalOdds), que usa a
   // probabilidade real do placar em vez de multiplicar odds correlacionadas.
   const canAddToSlip = (matchId: string, oddType: OddType) => {
-    // Como a nova seleção substituirá a antiga da mesma partida, a ação é sempre válida.
-    return true;
+    const selectedGroup = getMarketGroup(oddType);
+    const otherPicks = betSlip.filter(
+      item => item.matchId === matchId && getMarketGroup(item.oddType) !== selectedGroup
+    );
+    return picksCanCoexist([...otherPicks.map(item => item.oddType), oddType]);
   };
 
   const addToSlip = (matchId: string, oddType: OddType, oddValue: number) => {
     setBetSlip(prev => {
-      // Remove qualquer palpite anterior desta mesma partida (permite apenas uma seleção por jogo no cupom).
-      const filtered = prev.filter(item => item.matchId !== matchId);
+      const selectedGroup = getMarketGroup(oddType);
+      const otherPicks = prev.filter(
+        item => item.matchId === matchId && getMarketGroup(item.oddType) !== selectedGroup
+      );
+
+      if (!picksCanCoexist([...otherPicks.map(item => item.oddType), oddType])) return prev;
+
+      // Troca apenas o palpite do mesmo grupo e mantém os mercados complementares.
+      const filtered = prev.filter(
+        item => item.matchId !== matchId || getMarketGroup(item.oddType) !== selectedGroup
+      );
       return [...filtered, { matchId, oddType, oddValue }];
     });
   };

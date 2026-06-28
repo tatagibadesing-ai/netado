@@ -91,17 +91,47 @@ export const getMarketGroup = (oddType: OddType): MarketGroup => {
 
 const MAX_GOALS = 10;
 
-// Os palpites podem coexistir? (no máx. um por grupo de mercado e existe ao menos
-// um placar em que TODOS vencem). Bloqueia combos contraditórios — ex.: "Mais de
-// 2.5" + "Menos de 1.5", que nunca ganham juntos.
+// Os palpites podem coexistir? Regras:
+// 1) No máx. um por grupo de mercado.
+// 2) Nenhum palpite pode ser subconjunto do outro (ex.: cs_0_0 ⊂ draw, under05 ⊂ bttsNo).
+//    Se os placares vencedores de A estão todos contidos em B, combinar os dois é
+//    redundante e infla a odd de graça — bloqueamos.
+// 3) Existe ao menos um placar em que TODOS vencem juntos (não são contraditórios).
 export const picksCanCoexist = (oddTypes: OddType[]): boolean => {
   const groups = oddTypes.map(getMarketGroup);
   if (new Set(groups).size !== groups.length) return false;
 
-  for (let h = 0; h <= MAX_GOALS; h++) {
-    for (let a = 0; a <= MAX_GOALS; a++) {
-      if (oddTypes.every(t => doesPickMatchScore(t, h, a))) return true;
+  // Pré-calcula o conjunto de placares vencedores de cada pick.
+  const winSets: boolean[][] = oddTypes.map(t => {
+    const wins: boolean[] = [];
+    for (let h = 0; h <= MAX_GOALS; h++) {
+      for (let a = 0; a <= MAX_GOALS; a++) {
+        wins.push(doesPickMatchScore(t, h, a));
+      }
     }
+    return wins;
+  });
+
+  const totalCells = (MAX_GOALS + 1) * (MAX_GOALS + 1);
+
+  // Checa subconjunto: se TODO placar em que A ganha, B também ganha (ou vice-versa),
+  // um é redundante do outro — bloqueia.
+  for (let i = 0; i < oddTypes.length; i++) {
+    for (let j = i + 1; j < oddTypes.length; j++) {
+      let iSubJ = true;
+      let jSubI = true;
+      for (let k = 0; k < totalCells; k++) {
+        if (winSets[i][k] && !winSets[j][k]) iSubJ = false;
+        if (winSets[j][k] && !winSets[i][k]) jSubI = false;
+        if (!iSubJ && !jSubI) break;
+      }
+      if (iSubJ || jSubI) return false;
+    }
+  }
+
+  // Existe ao menos um placar que satisfaz TODOS os palpites?
+  for (let k = 0; k < totalCells; k++) {
+    if (winSets.every(ws => ws[k])) return true;
   }
   return false;
 };
