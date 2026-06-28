@@ -5,7 +5,7 @@ import { MatchCard } from "@/components/MatchCard";
 import { BetSlip } from "@/components/BetSlip";
 import { LeagueSelect } from "@/components/LeagueSelect";
 import { useBet, isPickWon } from "@/context/BetContext";
-import { RefreshCcw, CheckCircle2, XCircle, Clock, Trash2 } from "lucide-react";
+import { RefreshCcw, CheckCircle2, XCircle, Clock, Trash2, Flame, Sparkles } from "lucide-react";
 import { MyBets } from "@/components/MyBets";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
@@ -21,6 +21,8 @@ export default function ApostasEsportivas() {
     wcJoined,
     wcBalance,
     wcCoringaAvailable,
+    wcStreak,
+    wcBestStreak,
     joinWcCompetition,
     username,
     placedBets,
@@ -212,56 +214,37 @@ export default function ApostasEsportivas() {
                     })()}
 
                     {(() => {
-                      // ── Sequência de acertos (streak) ──────────────────────
-                      // Derivada do histórico resolvido do bolão, ordenado pelo
-                      // momento da resolução. Nada no banco — 100% calculado aqui.
-                      const resolvedWc = placedBets
-                        .filter((b) => b.isWcBet && (b.status === "won" || b.status === "lost"))
-                        .map((b) => ({
-                          status: b.status,
-                          t: Math.max(0, ...b.picks.map((p) => (p.resolvedAt ? new Date(p.resolvedAt).getTime() : 0))),
-                        }))
-                        .sort((a, b) => a.t - b.t);
-
-                      let currentStreak = 0;
-                      for (let i = resolvedWc.length - 1; i >= 0; i--) {
-                        if (resolvedWc[i].status === "won") currentStreak++;
-                        else break;
-                      }
-                      let bestStreak = 0, run = 0;
-                      for (const r of resolvedWc) {
-                        if (r.status === "won") { run++; if (run > bestStreak) bestStreak = run; }
-                        else run = 0;
-                      }
-
-                      // ── Apostas ao vivo agora ─────────────────────────────
+                      // Ofensiva (streak) vem do contexto. O painel ao vivo é
+                      // derivado das partidas em andamento.
                       const liveBets = placedBets.filter(
                         (b) => b.isWcBet && b.status === "pending" &&
                           b.picks.some((p) => matches.find((m) => m.id === p.matchId)?.isLive)
                       );
 
-                      if (resolvedWc.length === 0 && !wcCoringaAvailable && liveBets.length === 0) return null;
+                      if (wcStreak === 0 && wcBestStreak === 0 && !wcCoringaAvailable && liveBets.length === 0) return null;
 
                       return (
                         <div className="flex flex-col gap-4">
-                          {/* Faixa de stats: streak + coringa */}
+                          {/* Faixa de stats: ofensiva + coringa */}
                           <div className="flex flex-wrap items-center gap-2">
-                            {resolvedWc.length > 0 && (
+                            {(wcStreak > 0 || wcBestStreak > 0) && (
                               <span className="inline-flex items-center gap-1.5 bg-[#121212] px-3 py-1.5 rounded-lg text-xs font-bold text-white">
-                                🔥 Sequência: <span className="text-[#FF3C00]">{currentStreak}</span>
-                                {bestStreak > 0 && <span className="text-slate-500 font-medium">· recorde {bestStreak}</span>}
+                                <Flame className="w-3.5 h-3.5 text-amber-400" />
+                                Ofensiva: <span className="text-[#FF3C00]">{wcStreak}</span>
+                                {wcBestStreak > 0 && <span className="text-slate-500 font-medium">· recorde {wcBestStreak}</span>}
                               </span>
                             )}
                             {wcCoringaAvailable && (
-                              <span className="inline-flex items-center gap-1.5 bg-[#FF3C00]/10 border border-[#FF3C00]/30 px-3 py-1.5 rounded-lg text-xs font-bold text-[#FF3C00]">
-                                🃏 Coringa disponível hoje
+                              <span className="inline-flex items-center gap-1.5 bg-[#FF3C00]/10 px-3 py-1.5 rounded-lg text-xs font-bold text-[#FF3C00]">
+                                <Sparkles className="w-3.5 h-3.5" />
+                                Coringa disponível hoje
                               </span>
                             )}
                           </div>
 
                           {/* Painel "Ao Vivo Agora" */}
                           {liveBets.length > 0 && (
-                            <div className="bg-[#121212] rounded-2xl p-4 flex flex-col gap-3 border border-red-500/20">
+                            <div className="bg-[#121212] rounded-2xl p-4 flex flex-col gap-3">
                               <div className="flex items-center gap-2">
                                 <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
                                 <h4 className="text-sm font-bold text-white">Ao Vivo Agora</h4>
@@ -281,14 +264,16 @@ export default function ApostasEsportivas() {
                                   return (
                                     <div key={bet.id} className="bg-[#080808] rounded-lg p-3 flex flex-col gap-2">
                                       <div className="flex items-center justify-between">
-                                        <span className={`text-[10px] font-black uppercase tracking-wider ${
+                                        <span className={`inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider ${
                                           provisional === "winning" ? "text-green-500" : provisional === "losing" ? "text-red-500" : "text-amber-500"
                                         }`}>
-                                          {provisional === "winning" ? "✓ Ganhando" : provisional === "losing" ? "✗ Perdendo" : "Em jogo"}
+                                          {provisional === "winning" ? <><CheckCircle2 className="w-3 h-3" /> Ganhando</>
+                                            : provisional === "losing" ? <><XCircle className="w-3 h-3" /> Perdendo</>
+                                            : <><Clock className="w-3 h-3" /> Em jogo</>}
                                         </span>
-                                        <span className="text-xs font-bold text-[#FF3C00]">
+                                        <span className="inline-flex items-center gap-1 text-xs font-bold text-[#FF3C00]">
+                                          {bet.coringa && <Sparkles className="w-3 h-3" />}
                                           Se ganhar: R$ {bet.potentialReturn.toFixed(2)}
-                                          {bet.coringa && <span className="ml-1">🃏</span>}
                                         </span>
                                       </div>
                                       {bet.picks.map((p, i) => {
@@ -302,9 +287,9 @@ export default function ApostasEsportivas() {
                                               <span className="text-slate-500"> · {getOddLabel(p.oddType)}</span>
                                             </span>
                                             <span className="shrink-0">
-                                              {won === true ? <span className="text-green-500 font-bold">✓</span>
-                                                : won === false ? <span className="text-red-500 font-bold">✗</span>
-                                                : <span className="text-slate-600">⏳</span>}
+                                              {won === true ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+                                                : won === false ? <XCircle className="w-3.5 h-3.5 text-red-500" />
+                                                : <Clock className="w-3.5 h-3.5 text-slate-600" />}
                                             </span>
                                           </div>
                                         );
@@ -713,8 +698,8 @@ export default function ApostasEsportivas() {
                                               {bet.status === "cancelled" && <span className="text-slate-500">Anulada</span>}
                                             </span>
                                             {bet.coringa && (
-                                              <span className="text-[10px] font-black text-[#FF3C00] bg-[#FF3C00]/15 px-1.5 py-0.5 rounded normal-case tracking-normal">
-                                                🃏 x2
+                                              <span className="inline-flex items-center gap-1 text-[10px] font-black text-[#FF3C00] bg-[#FF3C00]/15 px-1.5 py-0.5 rounded normal-case tracking-normal">
+                                                <Sparkles className="w-3 h-3" /> Coringa
                                               </span>
                                             )}
                                           </div>

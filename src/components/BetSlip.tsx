@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useBet } from "../context/BetContext";
-import { Trash2, AlertCircle, ChevronDown, ChevronUp, FileText } from "lucide-react";
+import { useBet, STREAK_PROFIT_STEP, CORINGA_PROFIT_FACTOR } from "../context/BetContext";
+import { Trash2, AlertCircle, ChevronDown, ChevronUp, FileText, Sparkles, Flame } from "lucide-react";
 import { computeTotalOdds, getOddLabel } from "../lib/odds";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -16,7 +16,8 @@ export function BetSlip() {
     placeBet,
     wcJoined,
     wcBalance,
-    wcCoringaAvailable
+    wcCoringaAvailable,
+    wcStreak
   } = useBet();
   const [betAmount, setBetAmount] = useState<number | "">("");
   const [isOpen, setIsOpen] = useState(false);
@@ -41,8 +42,17 @@ export function BetSlip() {
 
   const totalOdds = computeTotalOdds(betSlip, matches);
   const isWcBet = wcJoined && allMatchesWc;
-  const coringaActive = isWcBet && wcCoringaAvailable && useCoringa;
-  const potentialReturn = (Number(betAmount) || 0) * totalOdds * (coringaActive ? 2 : 1);
+  // Coringa só vale no "Jogo do Coringa" do dia (todas as seleções marcadas).
+  const coringaEligible = isWcBet && betSlip.length > 0 &&
+    betSlip.every((item) => matches.find((m) => m.id === item.matchId)?.isCoringaGame);
+  const coringaActive = coringaEligible && wcCoringaAvailable && useCoringa;
+
+  // Lucro bonificado no bolão: ofensiva (streak) e coringa multiplicam o LUCRO.
+  const stake = Number(betAmount) || 0;
+  const baseProfit = Math.max(0, stake * totalOdds - stake);
+  const streakMult = isWcBet ? Math.pow(STREAK_PROFIT_STEP, wcStreak) : 1;
+  const coringaMult = coringaActive ? CORINGA_PROFIT_FACTOR : 1;
+  const potentialReturn = isWcBet ? stake + baseProfit * streakMult * coringaMult : stake * totalOdds;
   const activeBalance = isWcBet ? wcBalance : balance;
   const isSufficientBalance = (Number(betAmount) || 0) <= activeBalance;
   const isWithinWcLimit = !isWcBet || (Number(betAmount) || 0) <= wcBalance * 0.75;
@@ -154,20 +164,29 @@ export function BetSlip() {
                     Saldo do Bolão: <span className="font-bold text-[#FF3C00]">R$ {wcBalance.toFixed(2)}</span> (Max aposta: R$ {(wcBalance * 0.75).toFixed(2)})
                   </p>
 
-                  {/* Coringa: 1 por dia, dobra os ganhos se a aposta vencer. */}
-                  {wcCoringaAvailable ? (
+                  {/* Bônus de ofensiva (streak): já embutido no retorno. */}
+                  {wcStreak > 0 && (
+                    <span className="flex items-center gap-1.5 text-[10px] font-bold text-amber-400">
+                      <Flame className="w-3.5 h-3.5" />
+                      Ofensiva de {wcStreak} — +{Math.round((streakMult - 1) * 100)}% de lucro
+                    </span>
+                  )}
+
+                  {/* Coringa: 1 por dia, só no Jogo do Coringa, 1.5x de lucro. */}
+                  {coringaEligible && wcCoringaAvailable ? (
                     <button
                       type="button"
                       onClick={() => setUseCoringa((v) => !v)}
-                      className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-left transition-colors cursor-pointer border ${
-                        useCoringa
-                          ? "bg-[#FF3C00]/15 border-[#FF3C00]"
-                          : "bg-[#080808] border-white/5 hover:border-white/20"
+                      className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-left transition-colors cursor-pointer ${
+                        useCoringa ? "bg-[#FF3C00]/15" : "bg-[#080808] hover:bg-[#161616]"
                       }`}
                     >
-                      <span className="flex flex-col">
-                        <span className="text-xs font-bold text-white">🃏 Usar Coringa do dia</span>
-                        <span className="text-[10px] text-slate-400">Ganhos em dobro se vencer</span>
+                      <span className="flex items-center gap-2">
+                        <Sparkles className={`w-4 h-4 shrink-0 ${useCoringa ? "text-[#FF3C00]" : "text-slate-400"}`} />
+                        <span className="flex flex-col">
+                          <span className="text-xs font-bold text-white">Usar Coringa do dia</span>
+                          <span className="text-[10px] text-slate-400">Lucro 1.5x neste Jogo do Coringa</span>
+                        </span>
                       </span>
                       <span
                         className={`shrink-0 w-9 h-5 rounded-full p-0.5 transition-colors ${
@@ -181,11 +200,15 @@ export function BetSlip() {
                         />
                       </span>
                     </button>
-                  ) : (
-                    <span className="text-[10px] text-slate-500 font-medium">
-                      🃏 Coringa já usado hoje — volta amanhã.
+                  ) : coringaEligible ? (
+                    <span className="flex items-center gap-1.5 text-[10px] text-slate-500 font-medium">
+                      <Sparkles className="w-3.5 h-3.5 shrink-0" /> Coringa já usado hoje — volta amanhã.
                     </span>
-                  )}
+                  ) : wcCoringaAvailable ? (
+                    <span className="flex items-center gap-1.5 text-[10px] text-slate-500 font-medium">
+                      <Sparkles className="w-3.5 h-3.5 shrink-0" /> Coringa disponível só no Jogo do Coringa do dia.
+                    </span>
+                  ) : null}
                 </div>
               )}
 
@@ -215,8 +238,8 @@ export function BetSlip() {
                 <span className="text-slate-400 flex items-center gap-1.5">
                   Retorno Potencial
                   {coringaActive && (
-                    <span className="text-[10px] font-black text-[#FF3C00] bg-[#FF3C00]/15 px-1.5 py-0.5 rounded">
-                      🃏 x2
+                    <span className="inline-flex items-center gap-1 text-[10px] font-black text-[#FF3C00] bg-[#FF3C00]/15 px-1.5 py-0.5 rounded">
+                      <Sparkles className="w-3 h-3" /> 1.5x
                     </span>
                   )}
                 </span>

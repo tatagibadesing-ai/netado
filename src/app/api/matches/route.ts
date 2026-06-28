@@ -406,6 +406,21 @@ export async function GET() {
       console.error("Erro ao buscar Copa do Mundo:", err);
     }
 
+    // ── Jogo do Coringa do dia ─────────────────────────────────────────
+    // Entre os jogos da Copa de HOJE (Brasília) que ainda não começaram,
+    // elege o mais equilibrado (menor diferença entre as odds de casa e fora)
+    // como o único onde o coringa do bolão pode ser usado.
+    const todaySP = now.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+    const wcToday = allMatches.filter(
+      (m) =>
+        m.league === "Copa do Mundo" && !m.isFinished && !m.isLive &&
+        new Date(m._date).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }) === todaySP
+    );
+    if (wcToday.length > 0) {
+      wcToday.sort((a, b) => Math.abs(a.odds.home - a.odds.away) - Math.abs(b.odds.home - b.odds.away));
+      wcToday[0].isCoringaGame = true;
+    }
+
     // Remove o campo auxiliar de ordenação antes de responder.
     for (const m of allMatches) delete m._date;
 

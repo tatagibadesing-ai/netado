@@ -9,6 +9,35 @@ import { doesPickMatchScore, getMarketGroup, picksCanCoexist, computeTotalOdds }
 // wc_coringa_used_on gravada pela RPC use_wc_coringa.
 const todaySaoPaulo = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
 
+// Fator de lucro por sequência de acertos no bolão: cada vitória seguida vale
+// +5% de lucro (compõe — 2 seguidas = 1.05², etc.).
+export const STREAK_PROFIT_STEP = 1.05;
+export const CORINGA_PROFIT_FACTOR = 1.5; // coringa: 1.5x de lucro no Jogo do Coringa
+
+// Sequência atual e recorde de acertos do bolão, derivadas do histórico
+// resolvido (ordenado pelo momento da resolução). Sem estado no banco.
+function wcStreakStats(bets: PlacedBet[]): { current: number; best: number } {
+  const resolved = bets
+    .filter((b) => b.isWcBet && (b.status === "won" || b.status === "lost"))
+    .map((b) => ({
+      won: b.status === "won",
+      t: Math.max(0, ...b.picks.map((p) => (p.resolvedAt ? new Date(p.resolvedAt).getTime() : 0))),
+    }))
+    .sort((a, b) => a.t - b.t);
+
+  let current = 0;
+  for (let i = resolved.length - 1; i >= 0; i--) {
+    if (resolved[i].won) current++;
+    else break;
+  }
+  let best = 0, run = 0;
+  for (const r of resolved) {
+    if (r.won) { run++; if (run > best) best = run; }
+    else run = 0;
+  }
+  return { current, best };
+}
+
 export interface SlipItem {
   matchId: string;
   oddType: OddType;
@@ -61,6 +90,8 @@ interface BetContextType {
   wcJoined: boolean;
   wcBalance: number;
   wcCoringaAvailable: boolean;
+  wcStreak: number;
+  wcBestStreak: number;
   joinWcCompetition: () => Promise<void>;
   placeWinnerBet: (teamName: string, teamLogo: string, oddValue: number, amount: number) => Promise<boolean>;
   fullName: string | null;
@@ -101,6 +132,9 @@ export function BetProvider({ children }: { children: ReactNode }) {
 
   // Coringa disponível: participa do bolão e ainda não usou o coringa de hoje.
   const wcCoringaAvailable = wcJoined && wcCoringaUsedOn !== todaySaoPaulo();
+
+  // Sequência de acertos do bolão (atual + recorde), derivada do histórico.
+  const { current: wcStreak, best: wcBestStreak } = wcStreakStats(placedBets);
 
   // ── Auth ───────────────────────────────────────────────────────────
   const login = (uid: string, uname: string, bal: number, wcJoinedVal?: boolean, wcBalanceVal?: number, fName?: string | null) => {
@@ -463,20 +497,31 @@ export function BetProvider({ children }: { children: ReactNode }) {
       setBalance(nb);
     }
 
-    // Coringa: só vale no bolão. Consome de forma atômica; se ESTE cliente
-    // realmente gastou o coringa de hoje, o retorno é pago em dobro.
+    // Coringa: só vale no bolão E somente no "Jogo do Coringa" do dia. Consome
+    // de forma atômica; só dobra o lucro se ESTE cliente realmente gastou o
+    // coringa de hoje.
+    const coringaEligible =
+      isWcBet && betSlip.every((item) => matches.find((m) => m.id === item.matchId)?.isCoringaGame);
+
     let coringaApplied = false;
-    if (useCoringa && isWcBet && wcCoringaAvailable) {
+    if (useCoringa && coringaEligible && wcCoringaAvailable) {
       coringaApplied = await useWcCoringa(userId);
       if (coringaApplied) setWcCoringaUsedOn(todaySaoPaulo());
     }
+
+    // Lucro bonificado (só no bolão): a sequência de acertos e o coringa
+    // multiplicam o LUCRO, não a aposta. A perda continua sendo só o valor apostado.
+    const baseProfit = amount * totalOdds - amount;
+    const profitMult = isWcBet
+      ? Math.pow(STREAK_PROFIT_STEP, wcStreak) * (coringaApplied ? CORINGA_PROFIT_FACTOR : 1)
+      : 1;
 
     const newBet: PlacedBet = {
       id: Math.random().toString(36).substring(2, 9),
       amount,
       picks: enrichedPicks,
       totalOdds,
-      potentialReturn: amount * totalOdds * (coringaApplied ? 2 : 1),
+      potentialReturn: amount + baseProfit * profitMult,
       status: "pending",
       isWcBet,
       userNotified: false,
@@ -594,7 +639,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
         selectedLeague, activeTab,
         addToSlip, canAddToSlip, removeFromSlip, clearSlip, placeBet, resetAll,
         refreshMatches: fetchMatches, setSelectedLeague, setActiveTab,
-        wcJoined, wcBalance, wcCoringaAvailable, joinWcCompetition, placeWinnerBet,
+        wcJoined, wcBalance, wcCoringaAvailable, wcStreak, wcBestStreak, joinWcCompetition, placeWinnerBet,
         fullName, setFullName: setFullNameState, markBetsAsNotified,
         adminNotice, dismissAdminNotice
       }}

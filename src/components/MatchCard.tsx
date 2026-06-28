@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Match, OddType } from "../data/matches";
 import { useBet } from "../context/BetContext";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export function MatchCard({ match }: { match: Match }) {
@@ -92,6 +92,12 @@ export function MatchCard({ match }: { match: Match }) {
         </>
       )}
       <div className="relative z-10 flex flex-col flex-1">
+        {/* Selo do Jogo do Coringa do dia */}
+        {match.isCoringaGame && !hasStarted && (
+          <div className="flex items-center gap-1.5 mb-3 self-start text-[10px] font-bold text-[#FF3C00] bg-[#FF3C00]/10 px-2 py-1 rounded">
+            <Sparkles className="w-3 h-3" /> Jogo do Coringa
+          </div>
+        )}
         {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <span className={`text-xs font-medium tracking-wide ${isCopaDoMundo ? 'text-white font-semibold' : 'text-slate-400'}`}>
