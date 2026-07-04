@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useBet } from "../context/BetContext";
-import { CheckCircle2, XCircle, Clock, CheckCircle, Trash2 } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, CheckCircle, Trash2, Sparkles, Zap } from "lucide-react";
 import { getOddLabel } from "../lib/odds";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -49,6 +49,16 @@ export function MyBets() {
                       {bet.status === "lost" && <span className="text-red-500">Perdida</span>}
                       {bet.status === "cancelled" && <span className="text-slate-500">Anulada</span>}
                     </span>
+                    {bet.coringa && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-black text-[#FF3C00] bg-[#FF3C00]/15 px-1.5 py-0.5 rounded normal-case tracking-normal">
+                        <Sparkles className="w-3 h-3" /> Coringa
+                      </span>
+                    )}
+                    {bet.underdogCoringa && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-black text-[#FF9D00] bg-[#FF9D00]/15 px-1.5 py-0.5 rounded normal-case tracking-normal">
+                        <Zap className="w-3 h-3" /> Coringa do Azarão
+                      </span>
+                    )}
                   </div>
                   <span className="text-xs text-slate-500 font-mono bg-[#080808] px-2 py-1 rounded">
                     ID: {bet.id}
@@ -117,7 +127,14 @@ export function MyBets() {
                         <div className="flex justify-between items-center bg-[#121212] p-2 rounded">
                           <div className="flex flex-col">
                             <span className="text-[10px] text-slate-500 uppercase tracking-wider">Sua Aposta</span>
-                            <span className="font-bold text-slate-200">{getOddLabel(pick.oddType)}</span>
+                            <span className="font-bold text-slate-200 flex items-center gap-1.5">
+                              {getOddLabel(pick.oddType)}
+                              {(pick as any).underdogBoosted && (
+                                <span className="inline-flex items-center gap-0.5 text-[9px] font-black text-[#FF9D00] bg-[#FF9D00]/15 px-1 py-0.5 rounded normal-case tracking-normal">
+                                  <Zap className="w-2.5 h-2.5" /> Azarão 1.5x
+                                </span>
+                              )}
+                            </span>
                           </div>
                           
                           <div className="flex items-center gap-4">

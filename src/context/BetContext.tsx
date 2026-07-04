@@ -2,8 +2,8 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Match, OddType, initialMatches } from "../data/matches";
-import { supabase, adjustBalance, adjustWcBalance, useWcCoringa } from "../lib/supabase";
-import { doesPickMatchScore, getMarketGroup, picksCanCoexist, computeTotalOdds } from "../lib/odds";
+import { supabase, adjustBalance, adjustWcBalance, useWcCoringa, useWcUnderdogCoringa } from "../lib/supabase";
+import { doesPickMatchScore, getMarketGroup, picksCanCoexist, computeTotalOdds, findUnderdogPick } from "../lib/odds";
 
 // Data de "hoje" no fuso de Brasília (YYYY-MM-DD), pra bater com a coluna
 // wc_coringa_used_on gravada pela RPC use_wc_coringa.
@@ -62,6 +62,7 @@ export interface PlacedBet {
   isWcBet?: boolean;
   userNotified?: boolean;
   coringa?: boolean;
+  underdogCoringa?: boolean;
 }
 
 interface BetContextType {
@@ -82,7 +83,7 @@ interface BetContextType {
   canAddToSlip: (matchId: string, oddType: OddType) => boolean;
   removeFromSlip: (matchId: string, oddType: OddType) => void;
   clearSlip: () => void;
-  placeBet: (amount: number, useCoringa?: boolean) => void;
+  placeBet: (amount: number, useCoringa?: boolean, useUnderdogCoringa?: boolean) => void;
   resetAll: () => void;
   refreshMatches: (isInitial?: boolean) => void;
   setSelectedLeague: (league: string | null) => void;
@@ -90,6 +91,9 @@ interface BetContextType {
   wcJoined: boolean;
   wcBalance: number;
   wcCoringaAvailable: boolean;
+  wcUnderdogCoringaAvailable: boolean;
+  wcCoringaUsedOn: string | null;
+  wcUnderdogCoringaUsedOn: string | null;
   wcStreak: number;
   wcBestStreak: number;
   joinWcCompetition: () => Promise<void>;
@@ -127,11 +131,30 @@ export function BetProvider({ children }: { children: ReactNode }) {
   const [wcJoined, setWcJoined] = useState<boolean>(false);
   const [wcBalance, setWcBalance] = useState<number>(1000.0);
   const [wcCoringaUsedOn, setWcCoringaUsedOn] = useState<string | null>(null);
+  const [wcUnderdogCoringaUsedOn, setWcUnderdogCoringaUsedOn] = useState<string | null>(null);
   const [fullName, setFullNameState] = useState<string | null>(null);
   const [adminNotice, setAdminNotice] = useState<string | null>(null);
 
-  // Coringa disponível: participa do bolão e ainda não usou o coringa de hoje.
-  const wcCoringaAvailable = wcJoined && wcCoringaUsedOn !== todaySaoPaulo();
+  // Coringa tradicional com cooldown de 3 dias
+  const wcCoringaAvailable = React.useMemo(() => {
+    if (!wcJoined) return false;
+    if (!wcCoringaUsedOn) return true;
+
+    try {
+      const today = new Date(todaySaoPaulo());
+      const lastUsed = new Date(wcCoringaUsedOn);
+      
+      const diffTime = Math.abs(today.getTime() - lastUsed.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      return diffDays >= 3;
+    } catch (e) {
+      return wcCoringaUsedOn !== todaySaoPaulo();
+    }
+  }, [wcJoined, wcCoringaUsedOn]);
+
+  // Coringa do Azarão disponível 1 vez por dia
+  const wcUnderdogCoringaAvailable = wcJoined && wcUnderdogCoringaUsedOn !== todaySaoPaulo();
 
   // Sequência de acertos do bolão (atual + recorde), derivada do histórico.
   const { current: wcStreak, best: wcBestStreak } = wcStreakStats(placedBets);
@@ -153,7 +176,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
     if (!isLoggedIn && (wcJoinedVal === undefined || wcBalanceVal === undefined || fName === undefined)) {
       supabase
         .from("netano_profiles")
-        .select("wc_joined, wc_balance, full_name, admin_notice, wc_coringa_used_on")
+        .select("wc_joined, wc_balance, full_name, admin_notice, wc_coringa_used_on, wc_underdog_coringa_used_on")
         .eq("id", uid)
         .single()
         .then(({ data }) => {
@@ -163,6 +186,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
             if (fName === undefined) setFullNameState(data.full_name ?? null);
             setAdminNotice(data.admin_notice ?? null);
             setWcCoringaUsedOn(data.wc_coringa_used_on ?? null);
+            setWcUnderdogCoringaUsedOn(data.wc_underdog_coringa_used_on ?? null);
           }
         });
     }
@@ -177,6 +201,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
     setWcJoined(false);
     setWcBalance(1000.00);
     setWcCoringaUsedOn(null);
+    setWcUnderdogCoringaUsedOn(null);
     setFullNameState(null);
     setAdminNotice(null);
     localStorage.removeItem("netano_user");
@@ -232,7 +257,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
     if (saved) {
       try {
         const { uid, uname } = JSON.parse(saved);
-        supabase.from("netano_profiles").select("balance, wc_joined, wc_balance, full_name, admin_notice, wc_coringa_used_on").eq("id", uid).single().then(({ data }) => {
+        supabase.from("netano_profiles").select("balance, wc_joined, wc_balance, full_name, admin_notice, wc_coringa_used_on, wc_underdog_coringa_used_on").eq("id", uid).single().then(({ data }) => {
           if (data) {
             setUserId(uid);
             setUsername(uname);
@@ -242,6 +267,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
             setFullNameState(data.full_name ?? null);
             setAdminNotice(data.admin_notice ?? null);
             setWcCoringaUsedOn(data.wc_coringa_used_on ?? null);
+            setWcUnderdogCoringaUsedOn(data.wc_underdog_coringa_used_on ?? null);
             setIsLoggedIn(true);
           } else {
             localStorage.removeItem("netano_user");
@@ -286,6 +312,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
             isWcBet: b.is_wc_bet,
             userNotified: b.user_notified,
             coringa: b.coringa,
+            underdogCoringa: b.underdog_coringa,
           }));
           setPlacedBets(mapped);
         }
@@ -484,7 +511,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
   const clearSlip = () => setBetSlip([]);
 
   // ── Place Bet ──────────────────────────────────────────────────────
-  const placeBet = async (amount: number, useCoringa: boolean = false) => {
+  const placeBet = async (amount: number, useCoringa: boolean = false, useUnderdogCoringa: boolean = false) => {
     if (!userId || amount <= 0 || betSlip.length === 0) return;
 
     const picksByMatch = betSlip.reduce<Record<string, OddType[]>>((groups, item) => {
@@ -521,20 +548,6 @@ export function BetProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Odd justa: combina por partida via probabilidade real do placar e
-    // multiplica só entre partidas diferentes (ver computeTotalOdds).
-    const totalOdds = computeTotalOdds(betSlip, matches);
-    const enrichedPicks = betSlip.map(item => {
-      const match = matches.find(m => m.id === item.matchId);
-      return {
-        ...item,
-        homeTeam: match?.homeTeam || item.homeTeam,
-        awayTeam: match?.awayTeam || item.awayTeam,
-        homeLogo: match?.homeLogo || item.homeLogo,
-        awayLogo: match?.awayLogo || item.awayLogo,
-      };
-    });
-
     // Debita o valor primeiro — só depois mexemos no coringa, pra nunca queimar
     // o coringa numa aposta que falhou no débito.
     if (isWcBet) {
@@ -547,9 +560,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
       setBalance(nb);
     }
 
-    // Coringa: só vale no bolão E somente no "Jogo do Coringa" do dia. Consome
-    // de forma atômica; só dobra o lucro se ESTE cliente realmente gastou o
-    // coringa de hoje.
+    // Coringa: só vale no bolão E somente no "Jogo do Coringa" do dia.
     const coringaEligible =
       isWcBet && betSlip.every((item) => matches.find((m) => m.id === item.matchId)?.isCoringaGame);
 
@@ -558,6 +569,38 @@ export function BetProvider({ children }: { children: ReactNode }) {
       coringaApplied = await useWcCoringa(userId);
       if (coringaApplied) setWcCoringaUsedOn(todaySaoPaulo());
     }
+
+    // Coringa do Azarão: só vale no bolão E se houver algum palpite qualificável de azarão
+    let underdogCoringaApplied = false;
+    const bestUnderdog = findUnderdogPick(betSlip, matches);
+    if (useUnderdogCoringa && isWcBet && bestUnderdog && wcUnderdogCoringaAvailable) {
+      underdogCoringaApplied = await useWcUnderdogCoringa(userId);
+      if (underdogCoringaApplied) {
+        setWcUnderdogCoringaUsedOn(todaySaoPaulo());
+      }
+    }
+
+    // Ajusta o slip multiplicando a odd do azarão por 1.5 se o Coringa do Azarão foi ativado
+    const finalSlip = betSlip.map(item => {
+      if (underdogCoringaApplied && bestUnderdog && item.matchId === bestUnderdog.matchId && item.oddType === bestUnderdog.oddType) {
+        return { ...item, oddValue: Number((item.oddValue * 1.5).toFixed(2)) };
+      }
+      return item;
+    });
+
+    const totalOdds = computeTotalOdds(finalSlip, matches);
+    const enrichedPicks = finalSlip.map(item => {
+      const match = matches.find(m => m.id === item.matchId);
+      const isBoosted = underdogCoringaApplied && bestUnderdog && item.matchId === bestUnderdog.matchId && item.oddType === bestUnderdog.oddType;
+      return {
+        ...item,
+        homeTeam: match?.homeTeam || item.homeTeam,
+        awayTeam: match?.awayTeam || item.awayTeam,
+        homeLogo: match?.homeLogo || item.homeLogo,
+        awayLogo: match?.awayLogo || item.awayLogo,
+        ...(isBoosted ? { underdogBoosted: true } : {})
+      };
+    });
 
     // Lucro bonificado (só no bolão): a sequência de acertos e o coringa
     // multiplicam o LUCRO, não a aposta. A perda continua sendo só o valor apostado.
@@ -576,6 +619,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
       isWcBet,
       userNotified: false,
       coringa: coringaApplied,
+      underdogCoringa: underdogCoringaApplied,
     };
 
     setPlacedBets(prev => [newBet, ...prev]);
@@ -592,6 +636,7 @@ export function BetProvider({ children }: { children: ReactNode }) {
       is_wc_bet: newBet.isWcBet,
       user_notified: false,
       coringa: newBet.coringa,
+      underdog_coringa: newBet.underdogCoringa,
     });
   };
 
@@ -674,8 +719,10 @@ export function BetProvider({ children }: { children: ReactNode }) {
     setPlacedBets([]);
     setWcJoined(false);
     setWcBalance(1000.00);
+    setWcCoringaUsedOn(null);
+    setWcUnderdogCoringaUsedOn(null);
     if (userId) {
-      supabase.from("netano_profiles").update({ balance: 1000, wc_joined: false, wc_balance: 1000.00 }).eq("id", userId);
+      supabase.from("netano_profiles").update({ balance: 1000, wc_joined: false, wc_balance: 1000.00, wc_coringa_used_on: null, wc_underdog_coringa_used_on: null }).eq("id", userId);
       supabase.from("netano_bets").delete().eq("user_id", userId);
     }
     fetchMatches(true);
@@ -689,7 +736,9 @@ export function BetProvider({ children }: { children: ReactNode }) {
         selectedLeague, activeTab,
         addToSlip, canAddToSlip, removeFromSlip, clearSlip, placeBet, resetAll,
         refreshMatches: fetchMatches, setSelectedLeague, setActiveTab,
-        wcJoined, wcBalance, wcCoringaAvailable, wcStreak, wcBestStreak, joinWcCompetition, placeWinnerBet,
+        wcJoined, wcBalance, wcCoringaAvailable, wcUnderdogCoringaAvailable,
+        wcCoringaUsedOn, wcUnderdogCoringaUsedOn,
+        wcStreak, wcBestStreak, joinWcCompetition, placeWinnerBet,
         fullName, setFullName: setFullNameState, markBetsAsNotified,
         adminNotice, dismissAdminNotice
       }}

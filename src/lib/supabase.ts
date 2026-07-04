@@ -91,3 +91,19 @@ export async function useWcCoringa(userId: string): Promise<boolean> {
   }
   return data === true
 }
+
+// Consome (atomicamente) o coringa do azarão do dia do usuário no bolão.
+export async function useWcUnderdogCoringa(userId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('use_wc_underdog_coringa', { uid: userId })
+  if (error) {
+    console.error('use_wc_underdog_coringa failed', {
+      message: error.message,
+      details: error.details,
+      code: error.code,
+      hint: error.hint,
+    }, { userId })
+    return false
+  }
+  return data === true
+}
+

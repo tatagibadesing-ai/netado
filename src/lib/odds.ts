@@ -319,3 +319,28 @@ export function computeTotalOdds(slip: SlipPick[], matches: Match[]): number {
   }
   return Number(total.toFixed(2));
 }
+
+// Encontra o palpite de time azarão (time com a maior odd de vitória entre home/away)
+// que possui o maior valor de odd no slip (caso haja mais de um).
+export function findUnderdogPick(slip: SlipPick[], matches: Match[]): SlipPick | null {
+  let bestPick: SlipPick | null = null;
+  let maxOdd = 0;
+
+  for (const pick of slip) {
+    const match = matches.find(m => m.id === pick.matchId);
+    if (!match) continue;
+
+    // É azarão se apostou em Home e odd Home > odd Away, ou se apostou em Away e odd Away > odd Home.
+    const isUnderdog =
+      (pick.oddType === "home" && match.odds.home > match.odds.away) ||
+      (pick.oddType === "away" && match.odds.away > match.odds.home);
+
+    if (isUnderdog && pick.oddValue > maxOdd) {
+      maxOdd = pick.oddValue;
+      bestPick = pick;
+    }
+  }
+
+  return bestPick;
+}
+

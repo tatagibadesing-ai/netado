@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useBet, STREAK_PROFIT_STEP, CORINGA_PROFIT_FACTOR } from "../context/BetContext";
-import { Trash2, AlertCircle, ChevronDown, ChevronUp, FileText, Sparkles, Flame } from "lucide-react";
-import { computeTotalOdds, getOddLabel } from "../lib/odds";
+import { Trash2, AlertCircle, ChevronDown, ChevronUp, FileText, Sparkles, Flame, Zap } from "lucide-react";
+import { computeTotalOdds, getOddLabel, findUnderdogPick } from "../lib/odds";
 import { motion, AnimatePresence } from "framer-motion";
 
 export function BetSlip() {
@@ -17,11 +17,13 @@ export function BetSlip() {
     wcJoined,
     wcBalance,
     wcCoringaAvailable,
+    wcUnderdogCoringaAvailable,
     wcStreak
   } = useBet();
   const [betAmount, setBetAmount] = useState<number | "">("");
   const [isOpen, setIsOpen] = useState(false);
   const [useCoringa, setUseCoringa] = useState(false);
+  const [useUnderdogCoringa, setUseUnderdogCoringa] = useState(false);
 
   // Automatically open the slip when the first item is added
   useEffect(() => {
@@ -40,12 +42,30 @@ export function BetSlip() {
     return match ? (match.isLive || match.isFinished || match.time === "FINALIZADO") : false;
   });
 
-  const totalOdds = computeTotalOdds(betSlip, matches);
   const isWcBet = wcJoined && allMatchesWc;
+  
   // Coringa só vale no "Jogo do Coringa" do dia (todas as seleções marcadas).
   const coringaEligible = isWcBet && betSlip.length > 0 &&
     betSlip.every((item) => matches.find((m) => m.id === item.matchId)?.isCoringaGame);
   const coringaActive = coringaEligible && wcCoringaAvailable && useCoringa;
+
+  // Coringa do Azarão: vale se houver um palpite qualificável de azarão no bolão
+  const underdogPick = findUnderdogPick(betSlip, matches);
+  const underdogCoringaEligible = isWcBet && !!underdogPick;
+  const underdogCoringaActive = underdogCoringaEligible && wcUnderdogCoringaAvailable && useUnderdogCoringa;
+
+  // Ajusta o slip temporariamente para cálculo de odds/retorno se o Coringa do Azarão for ativado
+  const adjustedSlip = useMemo(() => {
+    if (!underdogCoringaActive || !underdogPick) return betSlip;
+    return betSlip.map(item => {
+      if (item.matchId === underdogPick.matchId && item.oddType === underdogPick.oddType) {
+        return { ...item, oddValue: Number((item.oddValue * 1.5).toFixed(2)) };
+      }
+      return item;
+    });
+  }, [betSlip, underdogCoringaActive, underdogPick]);
+
+  const totalOdds = computeTotalOdds(adjustedSlip, matches);
 
   // Lucro bonificado no bolão: ofensiva (streak) e coringa multiplicam o LUCRO.
   const stake = Number(betAmount) || 0;
@@ -60,9 +80,10 @@ export function BetSlip() {
 
   const handlePlaceBet = () => {
     if (isValidBet) {
-      placeBet(Number(betAmount), coringaActive);
+      placeBet(Number(betAmount), coringaActive, underdogCoringaActive);
       setBetAmount("");
       setUseCoringa(false);
+      setUseUnderdogCoringa(false);
       setIsOpen(false);
     }
   };
@@ -172,7 +193,7 @@ export function BetSlip() {
                     </span>
                   )}
 
-                  {/* Coringa: 1 por dia, só no Jogo do Coringa, 1.5x de lucro. */}
+                  {/* Coringa Tradicional: 1 a cada 3 dias, só no Jogo do Coringa, 1.5x de lucro. */}
                   {coringaEligible && wcCoringaAvailable ? (
                     <button
                       type="button"
@@ -184,8 +205,8 @@ export function BetSlip() {
                       <span className="flex items-center gap-2">
                         <Sparkles className={`w-4 h-4 shrink-0 ${useCoringa ? "text-[#FF3C00]" : "text-slate-400"}`} />
                         <span className="flex flex-col">
-                          <span className="text-xs font-bold text-white">Usar Coringa do dia</span>
-                          <span className="text-[10px] text-slate-400">Lucro 1.5x neste Jogo do Coringa</span>
+                          <span className="text-xs font-bold text-white">Usar Coringa (3 dias)</span>
+                          <span className="text-[10px] text-slate-400">Lucro 1.5x no Jogo do Coringa</span>
                         </span>
                       </span>
                       <span
@@ -202,11 +223,49 @@ export function BetSlip() {
                     </button>
                   ) : coringaEligible ? (
                     <span className="flex items-center gap-1.5 text-[10px] text-slate-500 font-medium">
-                      <Sparkles className="w-3.5 h-3.5 shrink-0" /> Coringa já usado hoje — volta amanhã.
+                      <Sparkles className="w-3.5 h-3.5 shrink-0" /> Coringa em cooldown (1 uso a cada 3 dias).
                     </span>
                   ) : wcCoringaAvailable ? (
                     <span className="flex items-center gap-1.5 text-[10px] text-slate-500 font-medium">
-                      <Sparkles className="w-3.5 h-3.5 shrink-0" /> Coringa disponível só no Jogo do Coringa do dia.
+                      <Sparkles className="w-3.5 h-3.5 shrink-0" /> Coringa disponível para o Jogo do Coringa do dia.
+                    </span>
+                  ) : null}
+
+                  {/* Coringa do Azarão: 1 por dia, 1.5x na odd da seleção azarão */}
+                  {underdogCoringaEligible && wcUnderdogCoringaAvailable ? (
+                    <button
+                      type="button"
+                      onClick={() => setUseUnderdogCoringa((v) => !v)}
+                      className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-left transition-colors cursor-pointer mt-2 ${
+                        useUnderdogCoringa ? "bg-[#FF9D00]/15" : "bg-[#080808] hover:bg-[#161616]"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <Zap className={`w-4 h-4 shrink-0 ${useUnderdogCoringa ? "text-[#FF9D00]" : "text-slate-400"}`} />
+                        <span className="flex flex-col">
+                          <span className="text-xs font-bold text-white">Usar Coringa do Azarão</span>
+                          <span className="text-[10px] text-slate-400">Odd 1.5x no time azarão</span>
+                        </span>
+                      </span>
+                      <span
+                        className={`shrink-0 w-9 h-5 rounded-full p-0.5 transition-colors ${
+                          useUnderdogCoringa ? "bg-[#FF9D00]" : "bg-white/10"
+                        }`}
+                      >
+                        <span
+                          className={`block w-4 h-4 rounded-full bg-white transition-transform ${
+                            useUnderdogCoringa ? "translate-x-4" : "translate-x-0"
+                          }`}
+                        />
+                      </span>
+                    </button>
+                  ) : underdogCoringaEligible ? (
+                    <span className="flex items-center gap-1.5 text-[10px] text-slate-500 font-medium mt-2">
+                      <Zap className="w-3.5 h-3.5 shrink-0" /> Coringa do Azarão já usado hoje — volta amanhã.
+                    </span>
+                  ) : wcUnderdogCoringaAvailable ? (
+                    <span className="flex items-center gap-1.5 text-[10px] text-slate-500 font-medium mt-2">
+                      <Zap className="w-3.5 h-3.5 shrink-0" /> Coringa do Azarão disponível (aposte em um time azarão).
                     </span>
                   ) : null}
                 </div>

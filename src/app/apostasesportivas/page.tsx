@@ -5,7 +5,7 @@ import { MatchCard } from "@/components/MatchCard";
 import { BetSlip } from "@/components/BetSlip";
 import { LeagueSelect } from "@/components/LeagueSelect";
 import { useBet, isPickWon } from "@/context/BetContext";
-import { RefreshCcw, CheckCircle2, XCircle, Clock, Trash2, Flame, Sparkles } from "lucide-react";
+import { RefreshCcw, CheckCircle2, XCircle, Clock, Trash2, Flame, Sparkles, Zap } from "lucide-react";
 import { MyBets } from "@/components/MyBets";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
@@ -428,7 +428,8 @@ export default function ApostasEsportivas() {
                                             : <><Clock className="w-3 h-3" /> Em jogo</>}
                                         </span>
                                         <span className="inline-flex items-center gap-1 text-xs font-bold text-[#FF3C00]">
-                                          {bet.coringa && <Sparkles className="w-3 h-3" />}
+                                          {bet.coringa && <Sparkles className="w-3 h-3 text-[#FF3C00]" />}
+                                          {bet.underdogCoringa && <Zap className="w-3 h-3 text-[#FF9D00]" />}
                                           Se ganhar: R$ {bet.potentialReturn.toFixed(2)}
                                         </span>
                                       </div>
@@ -894,6 +895,11 @@ export default function ApostasEsportivas() {
                                             {bet.coringa && (
                                               <span className="inline-flex items-center gap-1 text-[10px] font-black text-[#FF3C00] bg-[#FF3C00]/15 px-1.5 py-0.5 rounded normal-case tracking-normal">
                                                 <Sparkles className="w-3 h-3" /> Coringa
+                                              </span>
+                                            )}
+                                            {bet.underdogCoringa && (
+                                              <span className="inline-flex items-center gap-1 text-[10px] font-black text-[#FF9D00] bg-[#FF9D00]/15 px-1.5 py-0.5 rounded normal-case tracking-normal">
+                                                <Zap className="w-3 h-3" /> Coringa do Azarão
                                               </span>
                                             )}
                                           </div>
